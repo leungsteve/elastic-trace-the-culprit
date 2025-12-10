@@ -28,10 +28,10 @@ from payment.models import (
 )
 
 # Configure logging with trace correlation
+# EDOT auto-instrumentation handles trace ID injection automatically
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s] "
-    "%(name)s - %(message)s",
+    format="%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s",
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)

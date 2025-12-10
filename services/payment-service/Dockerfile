@@ -29,6 +29,9 @@ ENV SERVICE_NAME=payment-service
 ENV SERVICE_VERSION=v1.0
 ENV OTEL_SERVICE_NAME=payment-service
 ENV OTEL_RESOURCE_ATTRIBUTES=service.version=v1.0,deployment.environment=production
+ENV OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+ENV OTEL_PYTHON_LOG_CORRELATION=true
+ENV OTEL_PYTHON_LOG_LEVEL=info
 
 # Expose port
 EXPOSE 8082
@@ -42,7 +45,6 @@ CMD ["opentelemetry-instrument", \
      "--traces_exporter", "otlp", \
      "--metrics_exporter", "otlp", \
      "--logs_exporter", "otlp", \
-     "--exporter_otlp_endpoint", "${OTEL_EXPORTER_OTLP_ENDPOINT}", \
      "uvicorn", "payment.main:app", \
      "--host", "0.0.0.0", \
      "--port", "8082"]

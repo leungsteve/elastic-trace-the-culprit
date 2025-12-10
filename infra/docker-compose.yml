@@ -1,5 +1,3 @@
-version: "3.8"
-
 # From Commit to Culprit - Workshop Docker Compose
 # This file orchestrates all services for the Elastic Observability workshop
 

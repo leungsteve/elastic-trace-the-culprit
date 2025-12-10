@@ -13,6 +13,7 @@ This directory contains all operational scripts for the "From Commit to Culprit"
 | `load-generator.sh` | Generate traffic | `./load-generator.sh --rate 3` |
 | `workshop-test.sh` | **Test full workshop flow** | `./workshop-test.sh --manual-rollback` |
 | `setup-elastic.sh` | Provision Elastic assets | `./setup-elastic.sh` |
+| `test-elastic-api.sh` | **Test Elastic API endpoints** | `./test-elastic-api.sh --verbose` |
 | `generate-baseline.sh` | Generate baseline data | `./generate-baseline.sh` |
 | `auto-rollback-monitor.sh` | Monitor for auto-rollback | `./auto-rollback-monitor.sh` |
 
@@ -207,6 +208,52 @@ Provisions Elastic Cloud with all workshop assets:
 ```bash
 ./setup-elastic.sh
 ```
+
+### test-elastic-api.sh
+
+**NEW!** Tests Elastic API endpoints before running setup-elastic.sh.
+
+**What it tests:**
+- Kibana API connectivity
+- SLO creation endpoints
+- Alert rule creation endpoints
+- Resource ID extraction
+- Error handling
+
+**Usage:**
+```bash
+# Basic test
+./test-elastic-api.sh
+
+# Show full API responses
+./test-elastic-api.sh --verbose
+
+# Test and cleanup resources
+./test-elastic-api.sh --cleanup
+
+# Verbose with cleanup
+./test-elastic-api.sh --verbose --cleanup
+```
+
+**Output:**
+- Connection status
+- Test results (PASS/FAIL)
+- Resource IDs created
+- Detailed error messages
+- Summary statistics
+
+**Requirements:**
+- `KIBANA_URL` in .env
+- `ELASTIC_API_KEY` in .env
+- Optional: `jq` for pretty JSON output
+
+**When to use:**
+- Before first-time setup-elastic.sh run
+- To verify API credentials
+- To debug setup-elastic.sh failures
+- To validate JSON payloads
+
+**See also:** [docs/ELASTIC-API-TESTING-REPORT.md](../docs/ELASTIC-API-TESTING-REPORT.md)
 
 ### generate-baseline.sh
 
