@@ -31,22 +31,6 @@
     "interval": "1m"
   },
   "rule_type_id": "slo.rules.burnRate",
-  "notify_when": "onActionGroupChange",
-  "actions": [
-    {
-      "id": "{{WEBHOOK_CONNECTOR_ID}}",
-      "group": "slo.burnRate.high",
-      "params": {
-        "body": "{\"service\":\"order-service\",\"target_version\":\"v1.0\",\"reason\":\"SLO burn rate exceeded 6x sustainable rate\",\"alert_id\":\"{{alert.id}}\",\"alert_name\":\"{{alert.name}}\",\"burn_rate\":\"{{context.burnRate}}\",\"timestamp\":\"{{context.timestamp}}\"}"
-      }
-    },
-    {
-      "id": "{{SLACK_CONNECTOR_ID}}",
-      "group": "slo.burnRate.high",
-      "params": {
-        "message": "CRITICAL: Order Service SLO burn rate alert!\n\nBurn rate: {{context.burnRate}}x (threshold: 6x)\nSLO: {{context.sloName}}\nError budget remaining: {{context.errorBudgetRemaining}}%\n\nAutomatic rollback initiated to v1.0"
-      }
-    }
-  ],
+  "actions": [],
   "enabled": true
 }

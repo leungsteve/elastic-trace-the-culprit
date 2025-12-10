@@ -8,9 +8,8 @@
       "environment": "production",
       "transactionType": "request",
       "transactionName": "POST /api/orders",
-      "index": "traces-apm*",
-      "filter": "",
-      "threshold": 500000
+      "threshold": 500000,
+      "index": "traces-apm*"
     }
   },
   "timeWindow": {
@@ -26,6 +25,5 @@
     "order-service",
     "latency",
     "customer-experience"
-  ],
-  "groupBy": "transaction.name"
+  ]
 }

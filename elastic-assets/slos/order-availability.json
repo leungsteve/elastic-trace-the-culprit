@@ -8,8 +8,7 @@
       "environment": "production",
       "transactionType": "request",
       "transactionName": "POST /api/orders",
-      "index": "traces-apm*",
-      "filter": ""
+      "index": "traces-apm*"
     }
   },
   "timeWindow": {
@@ -25,6 +24,5 @@
     "order-service",
     "availability",
     "revenue-critical"
-  ],
-  "groupBy": "transaction.name"
+  ]
 }

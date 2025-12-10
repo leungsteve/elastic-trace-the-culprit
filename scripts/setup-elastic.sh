@@ -110,6 +110,7 @@ api_call() {
 create_slo() {
     local name=$1
     local file=$2
+    local var_name=$3
 
     print_info "Creating SLO: ${name}"
 
@@ -121,8 +122,18 @@ create_slo() {
     local data
     data=$(cat "$file")
 
-    if api_call POST "/api/observability/slos" "$data" > /dev/null; then
+    local response
+    if response=$(api_call POST "/api/observability/slos" "$data"); then
         print_success "Created SLO: ${name}"
+
+        # Extract SLO ID from response
+        local slo_id
+        slo_id=$(echo "$response" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+        if [[ -n "$slo_id" && -n "$var_name" ]]; then
+            eval "${var_name}='${slo_id}'"
+            print_info "SLO ID: ${slo_id}"
+        fi
     else
         print_info "SLO may already exist or there was an error"
     fi
@@ -131,6 +142,8 @@ create_slo() {
 create_rule() {
     local name=$1
     local file=$2
+    shift 2
+    # Remaining args are key=value pairs for substitution
 
     print_info "Creating alert rule: ${name}"
 
@@ -142,10 +155,12 @@ create_rule() {
     local data
     data=$(cat "$file")
 
-    # Substitute webhook URL if present
-    if [[ -n "$WEBHOOK_PUBLIC_URL" ]]; then
-        data=$(echo "$data" | sed "s|{{WEBHOOK_PUBLIC_URL}}|${WEBHOOK_PUBLIC_URL}|g")
-    fi
+    # Perform substitutions for all passed key=value pairs
+    for arg in "$@"; do
+        local key="${arg%%=*}"
+        local value="${arg#*=}"
+        data=$(echo "$data" | sed "s|{{${key}}}|${value}|g")
+    done
 
     if api_call POST "/api/alerting/rule" "$data" > /dev/null; then
         print_success "Created rule: ${name}"
@@ -157,6 +172,7 @@ create_rule() {
 create_connector() {
     local name=$1
     local file=$2
+    local var_name=$3
 
     print_info "Creating connector: ${name}"
 
@@ -172,11 +188,22 @@ create_connector() {
     if [[ -n "$WEBHOOK_PUBLIC_URL" ]]; then
         data=$(echo "$data" | sed "s|{{WEBHOOK_PUBLIC_URL}}|${WEBHOOK_PUBLIC_URL}|g")
     else
-        print_info "WEBHOOK_PUBLIC_URL not set, connector may not work"
+        print_info "WEBHOOK_PUBLIC_URL not set, skipping connector creation"
+        return 0
     fi
 
-    if api_call POST "/api/actions/connector" "$data" > /dev/null; then
+    local response
+    if response=$(api_call POST "/api/actions/connector" "$data"); then
         print_success "Created connector: ${name}"
+
+        # Extract connector ID from response
+        local connector_id
+        connector_id=$(echo "$response" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+        if [[ -n "$connector_id" && -n "$var_name" ]]; then
+            eval "${var_name}='${connector_id}'"
+            print_info "Connector ID: ${connector_id}"
+        fi
     else
         print_info "Connector may already exist or there was an error"
     fi
@@ -204,8 +231,8 @@ setup_slos() {
     echo -e "${BLUE}Setting up SLOs...${NC}"
     echo ""
 
-    create_slo "Order Service Latency" "${ASSETS_DIR}/slos/order-latency.json"
-    create_slo "Order Service Availability" "${ASSETS_DIR}/slos/order-availability.json"
+    create_slo "Order Service Latency" "${ASSETS_DIR}/slos/order-latency.json" ORDER_LATENCY_SLO_ID
+    create_slo "Order Service Availability" "${ASSETS_DIR}/slos/order-availability.json" ORDER_AVAILABILITY_SLO_ID
 }
 
 setup_alerts() {
@@ -213,8 +240,16 @@ setup_alerts() {
     echo -e "${BLUE}Setting up Alert Rules...${NC}"
     echo ""
 
+    # Create latency threshold alert
     create_rule "Latency Threshold" "${ASSETS_DIR}/alerts/latency-threshold.json"
-    create_rule "SLO Burn Rate" "${ASSETS_DIR}/alerts/slo-burn-rate.json"
+
+    # Create SLO burn rate alert with dynamic SLO ID substitution
+    if [[ -n "$ORDER_LATENCY_SLO_ID" ]]; then
+        create_rule "SLO Burn Rate" "${ASSETS_DIR}/alerts/slo-burn-rate.json" \
+            "ORDER_LATENCY_SLO_ID=${ORDER_LATENCY_SLO_ID}"
+    else
+        print_info "Skipping SLO Burn Rate alert (ORDER_LATENCY_SLO_ID not set)"
+    fi
 }
 
 setup_connectors() {
@@ -222,7 +257,7 @@ setup_connectors() {
     echo -e "${BLUE}Setting up Connectors...${NC}"
     echo ""
 
-    create_connector "Rollback Webhook" "${ASSETS_DIR}/workflows/webhook-connector.json"
+    create_connector "Rollback Webhook" "${ASSETS_DIR}/workflows/webhook-connector.json" WEBHOOK_CONNECTOR_ID
 }
 
 setup_dashboard() {
@@ -298,9 +333,16 @@ main() {
     load_env
     verify_connection
 
-    setup_slos
-    setup_alerts
+    # Create connectors first (needed for alert actions)
     setup_connectors
+
+    # Create SLOs (needed for SLO burn rate alert)
+    setup_slos
+
+    # Create alert rules (can now reference SLO IDs and connector IDs)
+    setup_alerts
+
+    # Import dashboard and setup agent builder
     setup_dashboard
     setup_agent_builder
 

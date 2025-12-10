@@ -34,15 +34,6 @@
     "interval": "1m"
   },
   "rule_type_id": ".index-threshold",
-  "notify_when": "onActionGroupChange",
-  "actions": [
-    {
-      "id": "{{SLACK_CONNECTOR_ID}}",
-      "group": "threshold met",
-      "params": {
-        "message": "Order Service latency degradation detected!\n\nP95 latency: {{context.value}}µs (threshold: 2000ms)\nTime: {{context.date}}\n\nInvestigate in Kibana: {{context.link}}"
-      }
-    }
-  ],
+  "actions": [],
   "enabled": true
 }
