@@ -1,0 +1,106 @@
+{
+  "name": "incident-timeline",
+  "description": "Creates a comprehensive incident timeline by combining deployment events, alert triggers, SLO violations, and service metrics. Essential for post-incident reviews and root cause analysis.",
+  "type": "elasticsearch_query",
+  "parameters": {
+    "index": "traces-apm*,logs-apm*,.internal-kibana-event-log-*",
+    "query": {
+      "bool": {
+        "should": [
+          {
+            "bool": {
+              "must": [
+                {
+                  "exists": {
+                    "field": "labels.optimization_commit_sha"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "bool": {
+              "must": [
+                {
+                  "term": {
+                    "event.provider": "alerting"
+                  }
+                },
+                {
+                  "terms": {
+                    "event.action": ["execute", "active-instance"]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "bool": {
+              "must": [
+                {
+                  "term": {
+                    "service.name": "{{service_name}}"
+                  }
+                },
+                {
+                  "term": {
+                    "event.outcome": "failure"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "minimum_should_match": 1,
+        "filter": [
+          {
+            "range": {
+              "@timestamp": {
+                "gte": "{{start_time}}",
+                "lte": "{{end_time}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "sort": [
+      {
+        "@timestamp": {
+          "order": "asc"
+        }
+      }
+    ],
+    "size": 100,
+    "_source": [
+      "@timestamp",
+      "service.name",
+      "event.action",
+      "event.provider",
+      "labels.optimization_*",
+      "error.type",
+      "error.message",
+      "rule.name",
+      "kibana.alert.rule.name"
+    ]
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "service_name": {
+        "type": "string",
+        "description": "The service involved in the incident"
+      },
+      "start_time": {
+        "type": "string",
+        "description": "Incident start time (ISO 8601)"
+      },
+      "end_time": {
+        "type": "string",
+        "description": "Incident end time (ISO 8601)"
+      }
+    },
+    "required": ["service_name", "start_time", "end_time"]
+  },
+  "output_format": "Returns chronological list of events including deployments, alerts, errors, and metric anomalies with timestamps and context."
+}

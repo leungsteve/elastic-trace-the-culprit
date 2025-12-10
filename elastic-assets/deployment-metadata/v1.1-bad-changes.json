@@ -1,0 +1,78 @@
+{
+  "deployment": {
+    "version": "v1.1-bad",
+    "service": "order-service",
+    "timestamp": "{{DEPLOYMENT_TIMESTAMP}}",
+    "environment": "production"
+  },
+  "attribution": {
+    "author": "jordan.rivera",
+    "author_email": "jordan.rivera@novamart.com",
+    "commit_sha": "a1b2c3d4",
+    "commit_message": "feat(order-service): optimize connection pooling for better performance",
+    "pr_number": "PR-1247",
+    "pr_title": "Performance: Optimize database connection pooling",
+    "approved_by": "sam.patel",
+    "deployment_pipeline": "github-actions-prod-deploy"
+  },
+  "changes": {
+    "summary": "Added connection pool optimization with warmup delay",
+    "description": "This deployment introduces a connection pool optimization that pre-warms connections to improve throughput. However, it inadvertently adds a 2-second delay to every request.",
+    "files_modified": [
+      "src/main/java/com/novamart/order/service/OrderService.java"
+    ],
+    "lines_changed": {
+      "additions": 15,
+      "deletions": 2
+    }
+  },
+  "code_diff": {
+    "file": "src/main/java/com/novamart/order/service/OrderService.java",
+    "method": "createOrder",
+    "before": "// Direct order processing\nOrder order = new Order(request);\norderRepository.save(order);",
+    "after": "// Connection pool optimization - warm up connections\nSpan optimizationSpan = tracer.spanBuilder(\"connection-pool-optimization\")\n    .setAttribute(\"optimization.type\", \"connection-pooling\")\n    .setAttribute(\"optimization.author\", \"jordan.rivera\")\n    .setAttribute(\"optimization.commit_sha\", \"a1b2c3d4\")\n    .setAttribute(\"optimization.pr_number\", \"PR-1247\")\n    .setAttribute(\"optimization.delay_ms\", 2000)\n    .startSpan();\n\ntry (Scope scope = optimizationSpan.makeCurrent()) {\n    log.debug(\"Applying connection pool optimization delay: 2000ms\");\n    Thread.sleep(2000);  // THE BUG - unnecessary delay\n} catch (InterruptedException e) {\n    Thread.currentThread().interrupt();\n} finally {\n    optimizationSpan.end();\n}\n\nOrder order = new Order(request);\norderRepository.save(order);",
+    "issue": "The Thread.sleep(2000) was intended for testing but was accidentally left in production code"
+  },
+  "expected_impact": {
+    "intended": "Improved database connection throughput by 15-20%",
+    "actual": "Added 2-second latency to every order creation request"
+  },
+  "observability_markers": {
+    "span_name": "connection-pool-optimization",
+    "span_attributes": {
+      "optimization.type": "connection-pooling",
+      "optimization.author": "jordan.rivera",
+      "optimization.commit_sha": "a1b2c3d4",
+      "optimization.pr_number": "PR-1247",
+      "optimization.delay_ms": 2000
+    },
+    "log_message": "Applying connection pool optimization delay: 2000ms",
+    "log_level": "DEBUG"
+  },
+  "rollback_info": {
+    "previous_version": "v1.0",
+    "rollback_command": "./scripts/rollback.sh order-service v1.0",
+    "estimated_rollback_time_seconds": 30
+  },
+  "incident_correlation": {
+    "slo_impact": "Latency SLO dropped from 98% to 12% compliance",
+    "alert_triggered": "SLO burn rate exceeded 6x threshold",
+    "business_impact": "Estimated revenue loss: $47.50 per failed transaction",
+    "customer_impact": "Order creation timeout errors, abandoned carts"
+  },
+  "lessons_learned": {
+    "root_cause": "Test code (Thread.sleep) left in production deployment",
+    "prevention": [
+      "Add static analysis to detect Thread.sleep in production code paths",
+      "Require load testing before production deployment",
+      "Enable APM-based deployment verification with automatic rollback",
+      "Add pre-deployment latency regression tests"
+    ]
+  },
+  "metadata": {
+    "created_for": "from-commit-to-culprit-workshop",
+    "purpose": "Provide Agent Builder with deployment context for investigation",
+    "index": "deployment-metadata",
+    "doc_type": "deployment-event"
+  }
+}

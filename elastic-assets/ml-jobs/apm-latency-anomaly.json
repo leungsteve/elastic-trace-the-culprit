@@ -1,0 +1,123 @@
+{
+  "job_id": "apm-order-service-latency-anomaly",
+  "description": "Detects anomalies in Order Service transaction latency using ML. Pre-trained on baseline data to recognize normal latency patterns.",
+  "analysis_config": {
+    "bucket_span": "5m",
+    "detectors": [
+      {
+        "detector_description": "High latency anomaly detection for order creation",
+        "function": "high_mean",
+        "field_name": "transaction.duration.us",
+        "by_field_name": "transaction.name",
+        "partition_field_name": "service.name",
+        "detector_index": 0
+      },
+      {
+        "detector_description": "Latency variance anomaly detection",
+        "function": "high_variance",
+        "field_name": "transaction.duration.us",
+        "by_field_name": "transaction.name",
+        "partition_field_name": "service.name",
+        "detector_index": 1
+      }
+    ],
+    "influencers": [
+      "service.name",
+      "transaction.name",
+      "service.node.name",
+      "labels.optimization_author"
+    ]
+  },
+  "data_description": {
+    "time_field": "@timestamp",
+    "time_format": "epoch_ms"
+  },
+  "datafeed_config": {
+    "datafeed_id": "datafeed-apm-order-service-latency-anomaly",
+    "indices": [
+      "metrics-apm*"
+    ],
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "term": {
+              "service.name": "order-service"
+            }
+          },
+          {
+            "term": {
+              "metricset.name": "transaction"
+            }
+          },
+          {
+            "exists": {
+              "field": "transaction.duration.us"
+            }
+          }
+        ]
+      }
+    },
+    "scroll_size": 1000,
+    "frequency": "5m",
+    "query_delay": "60s"
+  },
+  "analysis_limits": {
+    "model_memory_limit": "128mb",
+    "categorization_examples_limit": 4
+  },
+  "model_plot_config": {
+    "enabled": true,
+    "annotations_enabled": true
+  },
+  "custom_settings": {
+    "created_by": "workshop-setup",
+    "workshop": "from-commit-to-culprit",
+    "service_context": {
+      "service_name": "order-service",
+      "transaction_types": [
+        "POST /api/orders"
+      ],
+      "baseline_p95_latency_us": 200000,
+      "slo_threshold_us": 500000,
+      "anomaly_sensitivity": "medium"
+    }
+  },
+  "results_index_name": "custom-apm-order-service-latency-anomaly",
+  "allow_lazy_open": false,
+  "tags": [
+    "workshop",
+    "apm",
+    "order-service",
+    "latency",
+    "anomaly-detection"
+  ],
+  "training_data": {
+    "description": "Pre-train this job on baseline data before the workshop starts",
+    "time_range": {
+      "start": "{{BASELINE_START}}",
+      "end": "{{BASELINE_END}}"
+    },
+    "expected_baseline": {
+      "p50_latency_us": 150000,
+      "p95_latency_us": 200000,
+      "p99_latency_us": 300000,
+      "requests_per_minute": 100
+    }
+  },
+  "alert_configuration": {
+    "anomaly_score_threshold": 75,
+    "severity_threshold": "warning",
+    "alert_on": [
+      "high_mean",
+      "high_variance"
+    ],
+    "integration": {
+      "type": "kibana_alert",
+      "notify_channels": [
+        "slack",
+        "email"
+      ]
+    }
+  }
+}

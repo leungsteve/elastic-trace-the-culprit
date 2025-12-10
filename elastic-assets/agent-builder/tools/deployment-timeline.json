@@ -1,0 +1,87 @@
+{
+  "name": "deployment-timeline",
+  "description": "Retrieves deployment history from APM span attributes. Shows who deployed what, when, and includes commit SHA and PR numbers for correlation with code changes.",
+  "type": "elasticsearch_query",
+  "parameters": {
+    "index": "traces-apm*",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "exists": {
+              "field": "labels.optimization_commit_sha"
+            }
+          }
+        ],
+        "filter": [
+          {
+            "range": {
+              "@timestamp": {
+                "gte": "{{start_time}}",
+                "lte": "{{end_time}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "aggs": {
+      "deployments": {
+        "terms": {
+          "field": "labels.optimization_commit_sha",
+          "size": 50,
+          "order": {
+            "_key": "desc"
+          }
+        },
+        "aggs": {
+          "first_seen": {
+            "min": {
+              "field": "@timestamp"
+            }
+          },
+          "author": {
+            "terms": {
+              "field": "labels.optimization_author",
+              "size": 1
+            }
+          },
+          "pr_number": {
+            "terms": {
+              "field": "labels.optimization_pr_number",
+              "size": 1
+            }
+          },
+          "service": {
+            "terms": {
+              "field": "service.name",
+              "size": 1
+            }
+          }
+        }
+      }
+    },
+    "sort": [
+      {
+        "@timestamp": {
+          "order": "desc"
+        }
+      }
+    ]
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "start_time": {
+        "type": "string",
+        "description": "Start of time range to search (ISO 8601)"
+      },
+      "end_time": {
+        "type": "string",
+        "description": "End of time range to search (ISO 8601)"
+      }
+    },
+    "required": ["start_time", "end_time"]
+  },
+  "output_format": "Returns list of deployments with timestamp, commit SHA, author, PR number, and affected service."
+}

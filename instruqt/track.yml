@@ -1,0 +1,151 @@
+slug: from-commit-to-culprit
+id: from-commit-to-culprit
+title: "From Commit to Culprit: An Observability Mystery"
+teaser: Deploy bad code, detect anomalies with SLOs, investigate with APM, and watch automated remediation in action
+description: |-
+  A hands-on investigation workshop where you'll use Elastic Observability to trace a production incident from alert to root cause.
+
+  You are Alex Chen, an on-call SRE at NovaMart, a growing e-commerce company. It's Friday afternoon and a recent deployment has just gone wrong. Use Elastic APM, distributed tracing, log correlation, and Agent Builder to find the culprit, watch automated remediation kick in, and prevent future incidents.
+
+  **What you'll learn:**
+  - Navigate Elastic APM and understand service dependencies
+  - Establish baselines and monitor SLOs
+  - Detect anomalies with SLO burn rate alerts
+  - Investigate using trace-to-log correlation
+  - Observe automated remediation via Elastic Workflows
+  - Use Agent Builder for post-incident analysis
+
+  **Prerequisites:**
+  - Basic understanding of microservices
+  - Familiarity with REST APIs
+  - Some experience with logs and monitoring (any tool)
+
+  **Duration:** ~90 minutes
+
+icon: https://storage.googleapis.com/instruqt-frontend/img/tracks/elastic/elastic-observability-icon.png
+level: intermediate
+tags:
+  - elastic
+  - observability
+  - apm
+  - slo
+  - distributed-tracing
+  - incident-response
+  - workflows
+  - agent-builder
+owner: elastic
+developers:
+  - solutions-architecture@elastic.co
+private: false
+published: true
+
+challenges:
+  - slug: 01-setup-and-baseline
+    id: 01-setup-and-baseline
+    type: challenge
+    title: "Setup and Baseline"
+    teaser: "Verify your environment and establish what 'healthy' looks like"
+    assignment: challenges/01-setup-and-baseline/assignment.md
+    notes:
+      - type: text
+        contents: |-
+          # Welcome to NovaMart!
+
+          You are Alex Chen, an on-call SRE at NovaMart, a growing e-commerce company.
+
+          Before you start your weekend on-call shift, let's make sure everything looks healthy.
+
+          As your manager Sam Patel always says: "You cannot detect anomalies if you do not know what normal looks like."
+    tabs:
+      - title: Terminal
+        type: terminal
+        hostname: workstation
+      - title: Kibana
+        type: service
+        hostname: workstation
+        port: 5601
+    difficulty: basic
+    timelimit: 1200
+
+  - slug: 02-deploy-and-detect
+    id: 02-deploy-and-detect
+    type: challenge
+    title: "Deploy and Detect"
+    teaser: "Deploy a new version and watch the alerts fire"
+    assignment: challenges/02-deploy-and-detect/assignment.md
+    notes:
+      - type: text
+        contents: |-
+          # A Deployment Arrives
+
+          Jordan Rivera from the Order Service team has just deployed version 1.1 with "performance optimizations."
+
+          Everything looked good in QA...
+
+          Your phone is about to buzz.
+    tabs:
+      - title: Terminal
+        type: terminal
+        hostname: workstation
+      - title: Kibana
+        type: service
+        hostname: workstation
+        port: 5601
+    difficulty: basic
+    timelimit: 1800
+
+  - slug: 03-investigate-and-remediate
+    id: 03-investigate-and-remediate
+    type: challenge
+    title: "Investigate and Remediate"
+    teaser: "Find the smoking gun and watch automated remediation"
+    assignment: challenges/03-investigate-and-remediate/assignment.md
+    notes:
+      - type: text
+        contents: |-
+          # Time to Investigate
+
+          The alert is firing. Latency is through the roof.
+
+          Sam Patel asks: "What's happening? Can you get this resolved before the weekend rush?"
+
+          Time to put your investigation skills to work.
+    tabs:
+      - title: Terminal
+        type: terminal
+        hostname: workstation
+      - title: Kibana
+        type: service
+        hostname: workstation
+        port: 5601
+    difficulty: intermediate
+    timelimit: 1500
+
+  - slug: 04-learn-and-prevent
+    id: 04-learn-and-prevent
+    type: challenge
+    title: "Learn and Prevent"
+    teaser: "Use Agent Builder to analyze the incident and document lessons learned"
+    assignment: challenges/04-learn-and-prevent/assignment.md
+    notes:
+      - type: text
+        contents: |-
+          # The Resolution
+
+          The rollback is complete. Latency is back to normal.
+
+          Jordan messages you: "Hey Alex, sorry about that. Can you help me understand what went wrong?"
+
+          This is the part of the job you actually enjoy: turning incidents into lessons.
+    tabs:
+      - title: Terminal
+        type: terminal
+        hostname: workstation
+      - title: Kibana
+        type: service
+        hostname: workstation
+        port: 5601
+    difficulty: basic
+    timelimit: 900
+
+checksum: "0"

@@ -1,0 +1,86 @@
+# =============================================================================
+# EDOT Collector Configuration
+# =============================================================================
+# From Commit to Culprit - Elastic Observability Workshop
+#
+# This configuration receives OTLP telemetry from all services and exports
+# to Elastic Cloud Serverless.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Batch telemetry for efficient export
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  # Add resource attributes to all telemetry
+  resource:
+    attributes:
+      # Add deployment environment from env var
+      - key: deployment.environment
+        value: ${env:ENVIRONMENT}
+        action: upsert
+      # Add workshop identifier
+      - key: workshop.name
+        value: "from-commit-to-culprit"
+        action: upsert
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+exporters:
+  # Export to Elastic Cloud Managed OTLP Endpoint
+  otlp/elastic:
+    endpoint: ${env:OTEL_EXPORTER_OTLP_ENDPOINT}
+    headers:
+      Authorization: "ApiKey ${env:OTEL_EXPORTER_OTLP_API_KEY}"
+    compression: gzip
+
+  # Debug exporter for troubleshooting (disabled by default)
+  # Uncomment the debug exporter in pipelines to enable
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+
+  pipelines:
+    # Traces pipeline
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/elastic]
+
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/elastic]
+
+    # Logs pipeline
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/elastic]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888

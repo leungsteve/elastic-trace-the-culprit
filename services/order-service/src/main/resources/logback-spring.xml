@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logback configuration with OpenTelemetry trace ID correlation.
+  Workshop: From Commit to Culprit - Order Service
+
+  This configuration ensures that every log message includes the current trace_id
+  in the Mapped Diagnostic Context (MDC), enabling log correlation in Elastic Observability.
+
+  The EDOT Java agent automatically populates the trace_id in MDC.
+-->
+<configuration>
+
+    <!-- Console appender with trace ID correlation -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!--
+              Log pattern with trace_id from MDC:
+              - %d{HH:mm:ss.SSS}: Timestamp
+              - %-5level: Log level (padded to 5 chars)
+              - [%X{trace_id}]: Trace ID from MDC (empty if not in a trace)
+              - %msg: Log message
+              - [%logger{36}:%line]: Logger name and line number
+              - %n: Newline
+            -->
+            <pattern>%d{HH:mm:ss.SSS} %-5level [%X{trace_id}] %msg [%logger{36}:%line]%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- JSON appender for structured logging (optional, useful for production) -->
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Include trace_id, span_id, and trace_flags in JSON output -->
+            <includeMdcKeyName>trace_id</includeMdcKeyName>
+            <includeMdcKeyName>span_id</includeMdcKeyName>
+            <includeMdcKeyName>trace_flags</includeMdcKeyName>
+        </encoder>
+    </appender>
+
+    <!-- Root logger configuration -->
+    <root level="INFO">
+        <!-- Use CONSOLE appender by default -->
+        <appender-ref ref="CONSOLE" />
+
+        <!-- Uncomment to use JSON logging instead:
+        <appender-ref ref="JSON" />
+        -->
+    </root>
+
+    <!-- Application-specific logging -->
+    <logger name="com.novamart.order" level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE" />
+    </logger>
+
+    <!-- Spring Boot logging -->
+    <logger name="org.springframework.web" level="INFO" />
+    <logger name="org.springframework.boot" level="INFO" />
+
+    <!-- OpenTelemetry logging (set to DEBUG to see instrumentation details) -->
+    <logger name="io.opentelemetry" level="INFO" />
+
+    <!-- Suppress verbose HTTP client logging -->
+    <logger name="org.apache.http" level="WARN" />
+    <logger name="org.springframework.web.client.RestTemplate" level="INFO" />
+
+</configuration>

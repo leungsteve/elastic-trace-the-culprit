@@ -1,0 +1,97 @@
+{
+  "name": "service-health-snapshot",
+  "description": "Provides current health status of a service including latency, throughput, error rate, and active instances. Use this as your first diagnostic step when investigating incidents.",
+  "type": "elasticsearch_query",
+  "parameters": {
+    "index": "metrics-apm*",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "term": {
+              "service.name": "{{service_name}}"
+            }
+          },
+          {
+            "term": {
+              "metricset.name": "transaction"
+            }
+          }
+        ],
+        "filter": [
+          {
+            "range": {
+              "@timestamp": {
+                "gte": "now-{{time_window}}",
+                "lte": "now"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "aggs": {
+      "latency_p95": {
+        "percentiles": {
+          "field": "transaction.duration.histogram",
+          "percents": [95]
+        }
+      },
+      "latency_p99": {
+        "percentiles": {
+          "field": "transaction.duration.histogram",
+          "percents": [99]
+        }
+      },
+      "avg_latency": {
+        "avg": {
+          "field": "transaction.duration.histogram"
+        }
+      },
+      "throughput": {
+        "value_count": {
+          "field": "transaction.id"
+        }
+      },
+      "by_transaction": {
+        "terms": {
+          "field": "transaction.name",
+          "size": 10
+        },
+        "aggs": {
+          "avg_duration": {
+            "avg": {
+              "field": "transaction.duration.histogram"
+            }
+          },
+          "request_count": {
+            "value_count": {
+              "field": "transaction.id"
+            }
+          }
+        }
+      },
+      "service_instances": {
+        "cardinality": {
+          "field": "service.node.name"
+        }
+      }
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "service_name": {
+        "type": "string",
+        "description": "The service to check health for"
+      },
+      "time_window": {
+        "type": "string",
+        "description": "Time window for health check (e.g., 5m, 1h)",
+        "default": "5m"
+      }
+    },
+    "required": ["service_name"]
+  },
+  "output_format": "Returns current latency percentiles, throughput, transaction breakdown, and active instance count."
+}

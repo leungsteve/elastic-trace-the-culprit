@@ -1,0 +1,31 @@
+{
+  "name": "Order Service - Latency P95 < 500ms",
+  "description": "Ensures 95% of order service requests complete within 500ms. This SLO monitors the customer-facing order creation experience, which is critical for checkout conversion.",
+  "indicator": {
+    "type": "sli.apm.transactionDuration",
+    "params": {
+      "service": "order-service",
+      "environment": "production",
+      "transactionType": "request",
+      "transactionName": "POST /api/orders",
+      "index": "traces-apm*",
+      "filter": "",
+      "threshold": 500000
+    }
+  },
+  "timeWindow": {
+    "duration": "1h",
+    "type": "rolling"
+  },
+  "budgetingMethod": "occurrences",
+  "objective": {
+    "target": 0.95
+  },
+  "tags": [
+    "workshop",
+    "order-service",
+    "latency",
+    "customer-experience"
+  ],
+  "groupBy": "transaction.name"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "Rollback Webhook",
+  "connector_type_id": ".webhook",
+  "config": {
+    "url": "{{WEBHOOK_PUBLIC_URL}}/rollback",
+    "method": "post",
+    "headers": {
+      "Content-Type": "application/json",
+      "X-Workshop-Source": "elastic-alerting"
+    },
+    "hasAuth": false
+  },
+  "secrets": {}
+}

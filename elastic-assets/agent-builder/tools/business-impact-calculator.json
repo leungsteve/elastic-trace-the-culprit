@@ -1,0 +1,87 @@
+{
+  "name": "business-impact-calculator",
+  "description": "Calculates business impact of incidents by multiplying failed transactions by NovaMart's average order value ($47.50). Helps prioritize incidents and justify rollback decisions.",
+  "type": "elasticsearch_query",
+  "parameters": {
+    "index": "metrics-apm*",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "term": {
+              "service.name": "{{service_name}}"
+            }
+          },
+          {
+            "term": {
+              "transaction.name": "{{transaction_name}}"
+            }
+          },
+          {
+            "term": {
+              "event.outcome": "failure"
+            }
+          }
+        ],
+        "filter": [
+          {
+            "range": {
+              "@timestamp": {
+                "gte": "{{start_time}}",
+                "lte": "{{end_time}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "aggs": {
+      "failed_transactions": {
+        "value_count": {
+          "field": "transaction.id"
+        }
+      },
+      "failures_over_time": {
+        "date_histogram": {
+          "field": "@timestamp",
+          "fixed_interval": "1m"
+        }
+      }
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "service_name": {
+        "type": "string",
+        "description": "The service to analyze (typically order-service)"
+      },
+      "transaction_name": {
+        "type": "string",
+        "description": "The transaction to analyze (typically POST /api/orders)"
+      },
+      "start_time": {
+        "type": "string",
+        "description": "Start of incident period (ISO 8601)"
+      },
+      "end_time": {
+        "type": "string",
+        "description": "End of incident period (ISO 8601)"
+      },
+      "average_order_value": {
+        "type": "number",
+        "description": "Average order value in dollars",
+        "default": 47.50
+      }
+    },
+    "required": ["service_name", "transaction_name", "start_time", "end_time"]
+  },
+  "output_format": "Returns failed transaction count, estimated revenue impact (failed_count * avg_order_value), and failure rate over time.",
+  "post_process": {
+    "description": "Calculates revenue impact",
+    "calculations": {
+      "estimated_revenue_loss": "failed_transactions * average_order_value",
+      "formatted_impact": "USD ${estimated_revenue_loss.toFixed(2)}"
+    }
+  }
+}

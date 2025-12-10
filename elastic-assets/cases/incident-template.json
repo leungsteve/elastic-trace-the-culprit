@@ -1,0 +1,66 @@
+{
+  "title": "[INCIDENT] Order Service Latency Degradation - {{DATE}}",
+  "description": "Production incident: Order Service experiencing severe latency degradation impacting customer order creation.\n\n## Incident Summary\n\n**Status:** {{STATUS}}\n**Severity:** {{SEVERITY}}\n**Start Time:** {{START_TIME}}\n**End Time:** {{END_TIME}}\n**Duration:** {{DURATION}}\n**On-Call Engineer:** Alex Chen\n\n## Impact\n\n**Services Affected:**\n- Order Service (primary)\n- Downstream: Inventory Service, Payment Service\n\n**SLO Status:**\n- Latency SLO: {{LATENCY_SLO_COMPLIANCE}}% (target: 95%)\n- Availability SLO: {{AVAILABILITY_SLO_COMPLIANCE}}% (target: 99%)\n\n**Business Impact:**\n- Failed Transactions: {{FAILED_TRANSACTION_COUNT}}\n- Estimated Revenue Loss: ${{REVENUE_LOSS}}\n- Customer Impact: Order creation timeouts, abandoned carts\n\n## Timeline\n\n{{TIMELINE_EVENTS}}\n\n## Root Cause\n\n**Deployment:** v1.1-bad of Order Service\n**Author:** Jordan Rivera\n**Commit:** a1b2c3d4\n**PR:** PR-1247\n\n**Issue:** Connection pool optimization code contained a 2-second Thread.sleep() delay that was intended for testing but accidentally deployed to production.\n\n**Evidence:**\n- APM trace shows \"connection-pool-optimization\" span with 2000ms duration\n- Span attributes include commit SHA, author, and PR number\n- Correlated log message: \"Applying connection pool optimization delay: 2000ms\"\n- P95 latency increased from ~200ms to ~2200ms immediately after deployment\n\n## Remediation\n\n**Action Taken:** Automatic rollback to v1.0 triggered by SLO burn rate alert\n**Rollback Time:** {{ROLLBACK_TIMESTAMP}}\n**Time to Recovery:** {{MTTR_MINUTES}} minutes\n\n**Rollback Trigger:**\n- SLO burn rate exceeded 6x sustainable rate\n- Webhook connector called rollback service\n- Deployment automation executed: docker-compose up with v1.0 image\n\n**Verification:**\n- P95 latency returned to baseline (~200ms)\n- SLO compliance restored to >95%\n- Error rate returned to <1%\n- No manual intervention required\n\n## Prevention Measures\n\n### Immediate (Next Sprint)\n1. Add static analysis rule to flag Thread.sleep() in production code\n2. Implement pre-deployment latency regression tests\n3. Add APM-based deployment verification gates\n\n### Short-term (Next Quarter)\n1. Require load testing for all backend service changes\n2. Implement progressive delivery (canary deployments)\n3. Add automated performance benchmarking in CI/CD\n\n### Long-term (Roadmap)\n1. Implement chaos engineering exercises\n2. Enhance observability with distributed tracing for all services\n3. Build deployment confidence scoring based on APM metrics\n\n## Action Items\n\n- [ ] Review PR-1247 approval process with engineering management\n- [ ] Update deployment runbook with this incident as case study\n- [ ] Share incident report in engineering all-hands\n- [ ] Schedule blameless post-mortem with order-service team\n- [ ] Document rollback automation success for leadership\n- [ ] Update workshop materials with real incident data\n\n## References\n\n**Kibana Links:**\n- [APM Service Overview]({{KIBANA_URL}}/app/apm/services/order-service)\n- [Incident Dashboard]({{KIBANA_URL}}/app/dashboards/workshop-overview)\n- [SLO Status]({{KIBANA_URL}}/app/observability/slos)\n- [Alert History]({{KIBANA_URL}}/app/management/insightsAndAlerting/triggersActions/alerts)\n\n**Code References:**\n- [GitHub PR-1247](https://github.com/novamart/order-service/pull/1247)\n- [Commit a1b2c3d4](https://github.com/novamart/order-service/commit/a1b2c3d4)\n- [Rollback Script](https://github.com/novamart/infra/blob/main/scripts/rollback.sh)\n\n## Stakeholder Communication\n\n**Internal:**\n- Engineering leadership notified at {{NOTIFICATION_TIME}}\n- Customer support briefed on incident scope\n- Product team informed of feature deployment delay\n\n**External:**\n- Status page updated (if applicable)\n- Affected enterprise customers notified\n- No public disclosure required (incident duration < SLA threshold)\n\n---\n\n**Case Created:** {{CASE_CREATED_TIME}}\n**Created By:** elastic-observability-automation\n**Workshop Context:** From Commit to Culprit - Instruqt Lab\n",
+  "tags": [
+    "workshop",
+    "incident",
+    "order-service",
+    "latency",
+    "auto-remediation",
+    "deployment"
+  ],
+  "severity": "high",
+  "status": "closed",
+  "connector": {
+    "id": "none",
+    "name": "none",
+    "type": ".none",
+    "fields": null
+  },
+  "settings": {
+    "syncAlerts": true
+  },
+  "owner": "observability",
+  "assignees": [
+    {
+      "uid": "alex.chen"
+    }
+  ],
+  "customFields": [
+    {
+      "key": "service",
+      "type": "text",
+      "value": "order-service"
+    },
+    {
+      "key": "deployment_version",
+      "type": "text",
+      "value": "v1.1-bad"
+    },
+    {
+      "key": "commit_sha",
+      "type": "text",
+      "value": "a1b2c3d4"
+    },
+    {
+      "key": "pr_number",
+      "type": "text",
+      "value": "PR-1247"
+    },
+    {
+      "key": "mttr_minutes",
+      "type": "number",
+      "value": "{{MTTR_MINUTES}}"
+    },
+    {
+      "key": "revenue_impact",
+      "type": "number",
+      "value": "{{REVENUE_LOSS}}"
+    },
+    {
+      "key": "rollback_method",
+      "type": "text",
+      "value": "automatic"
+    }
+  ]
+}

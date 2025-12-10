@@ -1,0 +1,30 @@
+{
+  "name": "Order Service - Availability 99%",
+  "description": "Ensures 99% of order service requests succeed (HTTP 2xx/3xx). This SLO monitors the reliability of the order creation endpoint, directly impacting revenue.",
+  "indicator": {
+    "type": "sli.apm.transactionErrorRate",
+    "params": {
+      "service": "order-service",
+      "environment": "production",
+      "transactionType": "request",
+      "transactionName": "POST /api/orders",
+      "index": "traces-apm*",
+      "filter": ""
+    }
+  },
+  "timeWindow": {
+    "duration": "1h",
+    "type": "rolling"
+  },
+  "budgetingMethod": "occurrences",
+  "objective": {
+    "target": 0.99
+  },
+  "tags": [
+    "workshop",
+    "order-service",
+    "availability",
+    "revenue-critical"
+  ],
+  "groupBy": "transaction.name"
+}

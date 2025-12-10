@@ -1,0 +1,20 @@
+# Inventory Service Dependencies
+# Part of "From Commit to Culprit" workshop
+# Python 3.11+
+
+# Web Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Data Validation
+pydantic>=2.5.0
+
+# OpenTelemetry (EDOT)
+opentelemetry-distro>=0.42b0
+opentelemetry-exporter-otlp>=1.21.0
+opentelemetry-instrumentation-fastapi>=0.42b0
+
+# Development (optional)
+# pytest>=7.4.0
+# httpx>=0.25.0
+# pytest-asyncio>=0.21.0

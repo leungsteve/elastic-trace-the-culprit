@@ -1,0 +1,57 @@
+# Order Service Configuration
+# Workshop: From Commit to Culprit - Order Service
+
+spring:
+  application:
+    name: order-service
+
+server:
+  port: 8080
+  # Graceful shutdown for clean container restarts
+  shutdown: graceful
+
+# Service configuration
+order:
+  service:
+    version: ${ORDER_SERVICE_VERSION:v1.0}
+    environment: ${ENVIRONMENT:local}
+    # Bug toggle - controlled by environment variable from Dockerfile.bad
+    bug:
+      enabled: ${ORDER_SERVICE_ENABLE_BUG:false}
+
+# Downstream service URLs
+services:
+  inventory:
+    url: ${INVENTORY_SERVICE_URL:http://inventory-service:8081}
+  payment:
+    url: ${PAYMENT_SERVICE_URL:http://payment-service:8082}
+
+# Actuator endpoints for health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,ready,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.novamart.order: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{trace_id}] %msg [%logger{36}:%line]%n"

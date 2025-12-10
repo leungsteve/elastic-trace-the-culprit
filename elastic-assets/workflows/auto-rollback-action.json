@@ -1,0 +1,26 @@
+{
+  "name": "Auto-Rollback Action",
+  "description": "Automatically rolls back a service to the last known good version when SLO burn rate exceeds threshold. This action is triggered by the SLO burn rate alert and calls the rollback webhook service.",
+  "actionTypeId": ".webhook",
+  "config": {
+    "url": "{{WEBHOOK_PUBLIC_URL}}/rollback",
+    "method": "post",
+    "headers": {
+      "Content-Type": "application/json",
+      "X-Workshop-Source": "elastic-alerting",
+      "X-Alert-Id": "{{alert.id}}"
+    }
+  },
+  "params": {
+    "body": {
+      "service": "{{context.service}}",
+      "target_version": "{{context.target_version}}",
+      "reason": "{{context.reason}}",
+      "alert_id": "{{alert.id}}",
+      "alert_name": "{{alert.name}}",
+      "burn_rate": "{{context.burnRate}}",
+      "timestamp": "{{context.timestamp}}",
+      "triggered_by": "elastic-observability"
+    }
+  }
+}

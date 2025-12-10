@@ -1,0 +1,23 @@
+# Test Dependencies
+# From Commit to Culprit Workshop - Telemetry Validation Tests
+
+# Core testing framework
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-timeout>=2.1.0
+pytest-xdist>=3.3.0  # Parallel test execution
+
+# HTTP client for testing services
+httpx>=0.24.0
+
+# Additional testing utilities
+pytest-cov>=4.1.0  # Coverage reporting
+pytest-env>=0.8.0  # Environment variable management
+pytest-mock>=3.11.0  # Mocking utilities
+
+# For JSON validation and data handling
+jsonschema>=4.18.0
+
+# For better test output
+pytest-sugar>=0.9.7  # Better test output formatting
+pytest-html>=3.2.0  # HTML test reports

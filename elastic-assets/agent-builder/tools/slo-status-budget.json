@@ -1,0 +1,31 @@
+{
+  "name": "slo-status-budget",
+  "description": "Retrieves current SLO status, error budget consumption, and burn rate. Critical for understanding service reliability and deciding whether rollback is necessary.",
+  "type": "kibana_api",
+  "parameters": {
+    "method": "GET",
+    "path": "/api/observability/slos/{{slo_id}}",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "slo_id": {
+        "type": "string",
+        "description": "The SLO identifier to query"
+      }
+    },
+    "required": ["slo_id"]
+  },
+  "output_format": "Returns SLO objective, current SLI value, error budget remaining (%), burn rate, and time to exhaustion if current rate continues.",
+  "post_process": {
+    "description": "Calculates additional metrics",
+    "calculations": {
+      "budget_consumed_pct": "(1 - (error_budget_remaining / error_budget_initial)) * 100",
+      "burn_rate": "budget_consumed_pct / (time_elapsed / time_window)",
+      "time_to_exhaustion_hours": "error_budget_remaining / (current_error_rate * 24)"
+    }
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "name": "error-pattern-analysis",
+  "description": "Analyzes error patterns in APM data to identify common failure modes, error messages, and affected transactions. Helps pinpoint systematic issues vs. transient failures.",
+  "type": "elasticsearch_query",
+  "parameters": {
+    "index": "logs-apm*",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "term": {
+              "service.name": "{{service_name}}"
+            }
+          },
+          {
+            "term": {
+              "event.outcome": "failure"
+            }
+          }
+        ],
+        "filter": [
+          {
+            "range": {
+              "@timestamp": {
+                "gte": "{{start_time}}",
+                "lte": "{{end_time}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "aggs": {
+      "error_types": {
+        "terms": {
+          "field": "error.type",
+          "size": 10
+        },
+        "aggs": {
+          "sample_messages": {
+            "terms": {
+              "field": "error.message",
+              "size": 3
+            }
+          },
+          "affected_transactions": {
+            "terms": {
+              "field": "transaction.name",
+              "size": 5
+            }
+          }
+        }
+      },
+      "error_timeline": {
+        "date_histogram": {
+          "field": "@timestamp",
+          "fixed_interval": "1m"
+        }
+      },
+      "error_rate": {
+        "value_count": {
+          "field": "error.id"
+        }
+      }
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "service_name": {
+        "type": "string",
+        "description": "The service to analyze for errors"
+      },
+      "start_time": {
+        "type": "string",
+        "description": "Start of analysis period (ISO 8601)"
+      },
+      "end_time": {
+        "type": "string",
+        "description": "End of analysis period (ISO 8601)"
+      }
+    },
+    "required": ["service_name", "start_time", "end_time"]
+  },
+  "output_format": "Returns error types, sample messages, affected transactions, error timeline, and total error count."
+}

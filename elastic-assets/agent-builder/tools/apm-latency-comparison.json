@@ -1,0 +1,132 @@
+{
+  "name": "apm-latency-comparison",
+  "description": "Compares APM latency metrics between two time periods or versions. This tool helps identify performance regressions by showing before/after statistics for p50, p95, and p99 latency.",
+  "type": "elasticsearch_query",
+  "parameters": {
+    "index": "metrics-apm*",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "term": {
+              "service.name": "{{service_name}}"
+            }
+          },
+          {
+            "term": {
+              "transaction.name": "{{transaction_name}}"
+            }
+          },
+          {
+            "term": {
+              "metricset.name": "transaction"
+            }
+          }
+        ]
+      }
+    },
+    "aggs": {
+      "before_deployment": {
+        "filter": {
+          "range": {
+            "@timestamp": {
+              "gte": "{{before_start}}",
+              "lte": "{{before_end}}"
+            }
+          }
+        },
+        "aggs": {
+          "p50": {
+            "percentiles": {
+              "field": "transaction.duration.histogram",
+              "percents": [50]
+            }
+          },
+          "p95": {
+            "percentiles": {
+              "field": "transaction.duration.histogram",
+              "percents": [95]
+            }
+          },
+          "p99": {
+            "percentiles": {
+              "field": "transaction.duration.histogram",
+              "percents": [99]
+            }
+          },
+          "avg": {
+            "avg": {
+              "field": "transaction.duration.histogram"
+            }
+          }
+        }
+      },
+      "after_deployment": {
+        "filter": {
+          "range": {
+            "@timestamp": {
+              "gte": "{{after_start}}",
+              "lte": "{{after_end}}"
+            }
+          }
+        },
+        "aggs": {
+          "p50": {
+            "percentiles": {
+              "field": "transaction.duration.histogram",
+              "percents": [50]
+            }
+          },
+          "p95": {
+            "percentiles": {
+              "field": "transaction.duration.histogram",
+              "percents": [95]
+            }
+          },
+          "p99": {
+            "percentiles": {
+              "field": "transaction.duration.histogram",
+              "percents": [99]
+            }
+          },
+          "avg": {
+            "avg": {
+              "field": "transaction.duration.histogram"
+            }
+          }
+        }
+      }
+    }
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "service_name": {
+        "type": "string",
+        "description": "The service to analyze (e.g., order-service)"
+      },
+      "transaction_name": {
+        "type": "string",
+        "description": "The transaction to analyze (e.g., POST /api/orders)"
+      },
+      "before_start": {
+        "type": "string",
+        "description": "Start time for baseline period (ISO 8601)"
+      },
+      "before_end": {
+        "type": "string",
+        "description": "End time for baseline period (ISO 8601)"
+      },
+      "after_start": {
+        "type": "string",
+        "description": "Start time for comparison period (ISO 8601)"
+      },
+      "after_end": {
+        "type": "string",
+        "description": "End time for comparison period (ISO 8601)"
+      }
+    },
+    "required": ["service_name", "transaction_name", "before_start", "before_end", "after_start", "after_end"]
+  },
+  "output_format": "Returns latency percentiles (p50, p95, p99) and average for both time periods, enabling regression detection."
+}

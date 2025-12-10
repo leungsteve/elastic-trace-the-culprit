@@ -1,0 +1,172 @@
+version: "3.8"
+
+# From Commit to Culprit - Workshop Docker Compose
+# This file orchestrates all services for the Elastic Observability workshop
+
+services:
+  # =============================================================================
+  # APPLICATION SERVICES
+  # =============================================================================
+
+  order-service:
+    image: ${REGISTRY:-localhost:5000}/order-service:${ORDER_SERVICE_VERSION:-v1.0}
+    container_name: order-service
+    ports:
+      - "8088:8080"
+    environment:
+      - SPRING_APPLICATION_NAME=order-service
+      - OTEL_SERVICE_NAME=order-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_RESOURCE_ATTRIBUTES=service.version=${ORDER_SERVICE_VERSION:-v1.0},deployment.environment=${ENVIRONMENT:-local}
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_TRACES_EXPORTER=otlp
+      - INVENTORY_SERVICE_URL=http://inventory-service:8081
+      - PAYMENT_SERVICE_URL=http://payment-service:8082
+      - JAVA_TOOL_OPTIONS=-javaagent:/app/elastic-otel-javaagent.jar
+    depends_on:
+      otel-collector:
+        condition: service_started
+      inventory-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/orders/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - workshop
+    restart: unless-stopped
+
+  inventory-service:
+    image: ${REGISTRY:-localhost:5000}/inventory-service:${INVENTORY_SERVICE_VERSION:-v1.0}
+    container_name: inventory-service
+    ports:
+      - "8081:8081"
+    environment:
+      - OTEL_SERVICE_NAME=inventory-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_RESOURCE_ATTRIBUTES=service.version=${INVENTORY_SERVICE_VERSION:-v1.0},deployment.environment=${ENVIRONMENT:-local}
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - workshop
+    restart: unless-stopped
+
+  payment-service:
+    image: ${REGISTRY:-localhost:5000}/payment-service:${PAYMENT_SERVICE_VERSION:-v1.0}
+    container_name: payment-service
+    ports:
+      - "8082:8082"
+    environment:
+      - OTEL_SERVICE_NAME=payment-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_RESOURCE_ATTRIBUTES=service.version=${PAYMENT_SERVICE_VERSION:-v1.0},deployment.environment=${ENVIRONMENT:-local}
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - workshop
+    restart: unless-stopped
+
+  # =============================================================================
+  # INFRASTRUCTURE SERVICES
+  # =============================================================================
+
+  rollback-webhook:
+    image: ${REGISTRY:-localhost:5000}/rollback-webhook:v1.0
+    container_name: rollback-webhook
+    ports:
+      - "9000:9000"
+    environment:
+      - OTEL_SERVICE_NAME=rollback-webhook
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_RESOURCE_ATTRIBUTES=service.version=v1.0,deployment.environment=${ENVIRONMENT:-local}
+      - COMPOSE_FILE=/app/infra/docker-compose.yml
+      - ENV_FILE=/app/infra/.env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/app/infra:rw
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - workshop
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.91.0
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # Health check
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - OTEL_EXPORTER_OTLP_API_KEY=dXl0cUJwc0I3M2xyOEk5Y3QtUFI6UUxTLVZERks3d2YzanNfZEZ1RkN6dw==
+      - ENVIRONMENT=${ENVIRONMENT:-local}
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    networks:
+      - workshop
+    restart: unless-stopped
+
+  registry:
+    image: registry:2.8.3
+    container_name: registry
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry-data:/var/lib/registry
+    networks:
+      - workshop
+    restart: unless-stopped
+
+# =============================================================================
+# NETWORKS AND VOLUMES
+# =============================================================================
+
+networks:
+  workshop:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  registry-data:
