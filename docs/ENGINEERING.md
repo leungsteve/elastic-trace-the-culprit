@@ -24,7 +24,9 @@ This workshop supports two deployment environments. Both use Elastic Cloud Serve
 - **Platform:** Elastic Cloud Serverless (developer's own project)
 - **Agent Builder:** Available and fully functional
 - **ML Pre-training:** Optional (requires manual baseline generation)
-- **Webhook Connectivity:** Requires tunnel (e.g., ngrok) for automated rollback from Elastic Cloud
+- **Webhook Connectivity:** Two options:
+  1. **ngrok tunnel:** Enables Elastic Workflows to call the rollback-webhook directly
+  2. **auto-rollback-monitor.sh:** Local script that simulates Elastic Workflows behavior (no tunnel required)
 - **All Challenges:** Fully supported (1-4)
 
 ### Local Development (start-local) - Limited
@@ -305,6 +307,33 @@ Fast-forward script for demos and testing:
 2. Waits for alert to fire
 3. Captures key timestamps and URLs
 4. Useful for facilitator demonstrations and CI testing
+
+### auto-rollback-monitor.sh
+
+Local simulation of Elastic Workflows automated rollback. This script enables testing the full remediation flow without requiring ngrok or Elastic Cloud Workflows connectivity.
+
+**How it works:**
+1. Monitors order-service latency via HTTP requests
+2. Triggers rollback webhook when latency exceeds threshold (default: 1000ms)
+3. Requires 2 consecutive high readings to avoid false positives
+4. Calls the rollback-webhook service to swap container versions
+
+**Usage:**
+```bash
+# Start the monitor (default: 1000ms threshold, 5s interval)
+./scripts/auto-rollback-monitor.sh
+
+# Custom threshold and interval
+./scripts/auto-rollback-monitor.sh --threshold 500 --interval 3
+
+# Full automated demo
+./scripts/load-generator.sh --rate 2 &           # Background traffic
+./scripts/auto-rollback-monitor.sh &             # Background monitor
+./scripts/deploy.sh order-service v1.1-bad       # Deploy bad code
+# Watch auto-rollback trigger within ~10 seconds
+```
+
+**Note:** This script works on both macOS and Linux by using curl's built-in timing instead of platform-specific date commands.
 
 ---
 

@@ -59,7 +59,8 @@ from-commit-to-culprit/
 │   ├── setup-elastic.sh               # Kibana API provisioning
 │   ├── setup-registry.sh              # Local registry setup
 │   ├── build-images.sh                # Build all Docker images
-│   └── health-check.sh                # Service verification
+│   ├── health-check.sh                # Service verification
+│   └── auto-rollback-monitor.sh       # Local Workflows simulation
 │
 ├── elastic-assets/
 │   ├── ml-jobs/
