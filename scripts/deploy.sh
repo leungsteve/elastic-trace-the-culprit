@@ -169,10 +169,10 @@ pull_image() {
 restart_service() {
     local service=$1
 
-    print_info "Restarting ${service} with docker-compose"
+    print_info "Restarting ${service} with docker compose"
 
     cd "$INFRA_DIR"
-    docker-compose up -d --no-deps "$service"
+    docker compose up -d --no-deps "$service"
 
     print_success "Service restart initiated"
 }
