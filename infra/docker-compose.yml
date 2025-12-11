@@ -136,7 +136,8 @@ services:
       - "13133:13133" # Health check
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
-      - OTEL_EXPORTER_OTLP_API_KEY=dXl0cUJwc0I3M2xyOEk5Y3QtUFI6UUxTLVZERks3d2YzanNfZEZ1RkN6dw==
+      - OTEL_EXPORTER_OTLP_AUTH=${OTEL_EXPORTER_OTLP_AUTH}
+      - OTEL_EXPORTER_OTLP_INSECURE=${OTEL_EXPORTER_OTLP_INSECURE:-false}
       - ENVIRONMENT=${ENVIRONMENT:-local}
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro

@@ -39,11 +39,13 @@ processors:
     spike_limit_mib: 128
 
 exporters:
-  # Export to Elastic Cloud Managed OTLP Endpoint
+  # Export to Elastic APM Server (works with both Cloud Serverless and ECK)
   otlp/elastic:
     endpoint: ${env:OTEL_EXPORTER_OTLP_ENDPOINT}
     headers:
-      Authorization: "ApiKey ${env:OTEL_EXPORTER_OTLP_API_KEY}"
+      Authorization: "${env:OTEL_EXPORTER_OTLP_AUTH}"
+    tls:
+      insecure: ${env:OTEL_EXPORTER_OTLP_INSECURE}
     compression: gzip
 
   # Debug exporter for troubleshooting (disabled by default)
