@@ -9,7 +9,7 @@
       "transactionType": "request",
       "transactionName": "POST /api/orders",
       "threshold": {{SLO_LATENCY_THRESHOLD}},
-      "index": "traces-*,metrics-*"
+      "index": "{{SLO_INDEX_PATTERN}}"
     }
   },
   "timeWindow": {
