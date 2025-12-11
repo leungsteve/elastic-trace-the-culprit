@@ -5,14 +5,14 @@
     "type": "sli.apm.transactionErrorRate",
     "params": {
       "service": "order-service",
-      "environment": "production",
+      "environment": "*",
       "transactionType": "request",
       "transactionName": "POST /api/orders",
-      "index": "traces-apm*"
+      "index": "{{SLO_INDEX_PATTERN}}"
     }
   },
   "timeWindow": {
-    "duration": "1h",
+    "duration": "30d",
     "type": "rolling"
   },
   "budgetingMethod": "occurrences",
