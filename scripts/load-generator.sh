@@ -10,7 +10,7 @@
 # Usage: ./load-generator.sh [--duration <seconds>] [--rate <requests-per-second>]
 # Example: ./load-generator.sh --duration 300 --rate 3
 
-set -e
+# Note: Not using set -e as arithmetic operations can return non-zero
 
 # =============================================================================
 # Configuration
