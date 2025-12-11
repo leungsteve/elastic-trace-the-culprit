@@ -122,27 +122,15 @@ else
     echo "[WARN] Could not verify APM Server connection (HTTP ${APM_STATUS})"
 fi
 
-# Start local registry if not running
-echo ""
-echo "[INFO] Checking local Docker registry..."
-if docker ps --format '{{.Names}}' | grep -q '^registry$'; then
-    echo "[SUCCESS] Local registry already running"
-else
-    echo "[INFO] Starting local Docker registry on port 5000..."
-    # Remove old container if exists
-    docker rm -f registry 2>/dev/null || true
-    docker run -d -p 5000:5000 --restart=always --name registry registry:2
-    echo "[SUCCESS] Local registry started"
-fi
-
 echo ""
 echo "==============================================================="
 echo "  SETUP COMPLETE"
 echo "==============================================================="
 echo ""
 echo "Next steps:"
-echo "  1. Build images:       ./scripts/build-images.sh"
-echo "  2. Start services:     cd infra && docker compose up -d"
-echo "  3. Provision Elastic:  ./scripts/setup-elastic.sh"
-echo "  4. Generate traffic:   ./scripts/load-generator.sh &"
+echo "  1. Start registry:     cd infra && docker compose up -d registry"
+echo "  2. Build images:       ./scripts/build-images.sh"
+echo "  3. Start services:     cd infra && docker compose up -d"
+echo "  4. Provision Elastic:  ./scripts/setup-elastic.sh"
+echo "  5. Generate traffic:   ./scripts/load-generator.sh &"
 echo ""
