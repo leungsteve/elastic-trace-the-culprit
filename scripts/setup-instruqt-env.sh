@@ -100,24 +100,39 @@ EOF
 echo "[SUCCESS] Created ${ENV_FILE}"
 echo ""
 
-# Verify connectivity
+# Verify connectivity (with 5 second timeout)
 echo "[INFO] Verifying Elasticsearch connectivity..."
-if curl -s -o /dev/null -w "%{http_code}" \
+ES_STATUS=$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" \
     -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
-    "${ELASTIC_ENDPOINT}/_cluster/health" | grep -q "200"; then
+    "${ELASTIC_ENDPOINT}/_cluster/health" 2>/dev/null || echo "000")
+if [[ "$ES_STATUS" == "200" ]]; then
     echo "[SUCCESS] Elasticsearch connection verified"
 else
-    echo "[WARN] Could not verify Elasticsearch connection"
+    echo "[WARN] Could not verify Elasticsearch connection (HTTP ${ES_STATUS})"
     echo "       This may be normal if kubernetes-vm is still starting"
 fi
 
 echo ""
 echo "[INFO] Verifying APM Server connectivity..."
-if curl -s -o /dev/null -w "%{http_code}" \
-    "${APM_ENDPOINT}/" 2>/dev/null | grep -qE "200|403"; then
+APM_STATUS=$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" \
+    "${APM_ENDPOINT}/" 2>/dev/null || echo "000")
+if [[ "$APM_STATUS" =~ ^(200|403)$ ]]; then
     echo "[SUCCESS] APM Server reachable"
 else
-    echo "[WARN] Could not verify APM Server connection"
+    echo "[WARN] Could not verify APM Server connection (HTTP ${APM_STATUS})"
+fi
+
+# Start local registry if not running
+echo ""
+echo "[INFO] Checking local Docker registry..."
+if docker ps --format '{{.Names}}' | grep -q '^registry$'; then
+    echo "[SUCCESS] Local registry already running"
+else
+    echo "[INFO] Starting local Docker registry on port 5000..."
+    # Remove old container if exists
+    docker rm -f registry 2>/dev/null || true
+    docker run -d -p 5000:5000 --restart=always --name registry registry:2
+    echo "[SUCCESS] Local registry started"
 fi
 
 echo ""
@@ -126,7 +141,8 @@ echo "  SETUP COMPLETE"
 echo "==============================================================="
 echo ""
 echo "Next steps:"
-echo "  1. Start services:     cd infra && docker-compose up -d"
-echo "  2. Provision Elastic:  ./scripts/setup-elastic.sh"
-echo "  3. Generate traffic:   ./scripts/load-generator.sh &"
+echo "  1. Build images:       ./scripts/build-images.sh"
+echo "  2. Start services:     cd infra && docker compose up -d"
+echo "  3. Provision Elastic:  ./scripts/setup-elastic.sh"
+echo "  4. Generate traffic:   ./scripts/load-generator.sh &"
 echo ""
