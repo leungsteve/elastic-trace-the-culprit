@@ -12,7 +12,7 @@
 # Usage: ./auto-rollback-monitor.sh [--threshold <ms>] [--interval <seconds>]
 # Example: ./auto-rollback-monitor.sh --threshold 1000 --interval 5
 
-set -e
+# Note: Not using set -e as arithmetic operations can return non-zero
 
 # =============================================================================
 # Configuration
