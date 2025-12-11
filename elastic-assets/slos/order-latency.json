@@ -5,15 +5,15 @@
     "type": "sli.apm.transactionDuration",
     "params": {
       "service": "order-service",
-      "environment": "production",
+      "environment": "*",
       "transactionType": "request",
       "transactionName": "POST /api/orders",
-      "threshold": 500000,
-      "index": "traces-apm*"
+      "threshold": {{SLO_LATENCY_THRESHOLD}},
+      "index": "traces-*,metrics-*"
     }
   },
   "timeWindow": {
-    "duration": "1h",
+    "duration": "7d",
     "type": "rolling"
   },
   "budgetingMethod": "occurrences",
