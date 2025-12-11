@@ -7,27 +7,16 @@
     "threshold"
   ],
   "params": {
+    "index": ["metrics-*"],
+    "timeField": "@timestamp",
     "aggType": "avg",
-    "groupBy": "top",
-    "termField": "service.name",
-    "termSize": 10,
+    "aggField": "transaction.duration.histogram",
+    "groupBy": "all",
+    "filterKuery": "service.name:order-service AND transaction.name:\"POST /api/orders\"",
+    "threshold": [2000000],
     "thresholdComparator": ">",
     "timeWindowSize": 5,
-    "timeWindowUnit": "m",
-    "index": [
-      "metrics-apm*"
-    ],
-    "threshold": [
-      2000000
-    ],
-    "searchConfiguration": {
-      "query": {
-        "query": "service.name:order-service AND transaction.name:\"POST /api/orders\" AND metricset.name:transaction",
-        "language": "kuery"
-      },
-      "index": "metrics-apm*"
-    },
-    "aggField": "transaction.duration.histogram"
+    "timeWindowUnit": "m"
   },
   "consumer": "alerts",
   "schedule": {
