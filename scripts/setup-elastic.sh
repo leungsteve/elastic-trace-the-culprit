@@ -100,12 +100,12 @@ set_slo_thresholds() {
         export SLO_INDEX_PATTERN="traces-*,metrics-*"
         print_info "SLO config: threshold=${SLO_LATENCY_THRESHOLD}, index=${SLO_INDEX_PATTERN} (OTLP mode)"
     else
-        # Native APM: threshold is used directly in μs
-        # 500000 μs = 500ms
+        # Native APM: sli.apm.transactionDuration uses milliseconds
+        # 500 = 500ms
         # Index pattern must match APM transaction metrics data stream
-        export SLO_LATENCY_THRESHOLD=500000
+        export SLO_LATENCY_THRESHOLD=500
         export SLO_INDEX_PATTERN="metrics-apm.transaction.1m*"
-        print_info "SLO config: threshold=${SLO_LATENCY_THRESHOLD}, index=${SLO_INDEX_PATTERN} (APM mode)"
+        print_info "SLO config: threshold=${SLO_LATENCY_THRESHOLD}ms, index=${SLO_INDEX_PATTERN} (APM mode)"
     fi
 }
 
