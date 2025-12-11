@@ -68,7 +68,7 @@ KIBANA_URL=${KIBANA}
 # OpenTelemetry / APM Configuration
 # -----------------------------------------------------------------------------
 OTEL_EXPORTER_OTLP_ENDPOINT=${APM_ENDPOINT}
-OTEL_EXPORTER_OTLP_AUTH=Bearer ${APM_SECRET}
+OTEL_EXPORTER_OTLP_AUTH="Bearer ${APM_SECRET}"
 OTEL_EXPORTER_OTLP_INSECURE=true
 
 # APM Secret Token (for reference)
