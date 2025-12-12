@@ -179,26 +179,30 @@ api_call() {
     fi
 }
 
-find_slo_by_name() {
+delete_all_slos_by_name() {
     local name=$1
     local response
-    response=$(curl -s -X GET "${KIBANA_URL}/api/observability/slos?name=${name// /%20}" \
+    response=$(curl -s -X GET "${KIBANA_URL}/api/observability/slos?perPage=100" \
         -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
         -H "kbn-xsrf: true" 2>/dev/null)
 
-    # Extract SLO ID if found
-    echo "$response" | jq -r ".results[] | select(.name == \"${name}\") | .id" 2>/dev/null | head -1
-}
+    # Find ALL SLOs matching the name and delete each one
+    local slo_ids
+    slo_ids=$(echo "$response" | jq -r ".results[] | select(.name == \"${name}\") | .id" 2>/dev/null)
 
-delete_slo() {
-    local slo_id=$1
-    local name=$2
-
-    if [[ -n "$slo_id" ]]; then
-        print_info "Deleting existing SLO: ${name} (${slo_id})"
-        curl -s -X DELETE "${KIBANA_URL}/api/observability/slos/${slo_id}" \
-            -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
-            -H "kbn-xsrf: true" > /dev/null 2>&1
+    if [[ -n "$slo_ids" ]]; then
+        local count=0
+        while IFS= read -r slo_id; do
+            if [[ -n "$slo_id" ]]; then
+                curl -s -X DELETE "${KIBANA_URL}/api/observability/slos/${slo_id}" \
+                    -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+                    -H "kbn-xsrf: true" > /dev/null 2>&1
+                ((count++))
+            fi
+        done <<< "$slo_ids"
+        if [[ $count -gt 0 ]]; then
+            print_info "Deleted ${count} existing SLO(s): ${name}"
+        fi
     fi
 }
 
@@ -214,12 +218,8 @@ create_slo() {
         return 1
     fi
 
-    # Check for existing SLO and delete it
-    local existing_id
-    existing_id=$(find_slo_by_name "$name")
-    if [[ -n "$existing_id" ]]; then
-        delete_slo "$existing_id" "$name"
-    fi
+    # Delete ALL existing SLOs with this name
+    delete_all_slos_by_name "$name"
 
     local data
     data=$(cat "$file")
@@ -1063,20 +1063,35 @@ print_summary() {
     echo -e "${GREEN}  SETUP COMPLETE${NC}"
     echo -e "${BLUE}===============================================================${NC}"
     echo ""
-    echo "The following Elastic assets have been provisioned:"
-    echo "  - SLOs (latency and availability)"
-    echo "  - Alert rules (threshold and burn rate)"
-    echo "  - Workflows UI enabled + workflow YAML created"
-    echo "  - ML anomaly detection job"
-    echo "  - Webhook connector for rollback (if WEBHOOK_PUBLIC_URL set)"
-    echo "  - Agent Builder tools and agent"
-    echo "  - Deployment metadata (indexed)"
-    echo "  - Workshop dashboard"
+    echo -e "${GREEN}Provisioned automatically:${NC}"
+    echo "  ✓ SLOs (Order Service Latency + Availability)"
+    echo "  ✓ Alert rules (Latency Threshold + SLO Burn Rate)"
+    echo "  ✓ Webhook connector for rollback"
+    echo "  ✓ Agent Builder agent + 8 custom ES|QL tools"
     echo ""
-    echo "Next steps:"
-    echo "  1. Verify assets in Kibana"
-    echo "  2. Access Agent Builder: Search > AI Assistants or Agent Builder"
-    echo "  3. Start the load generator: ./scripts/load-generator.sh"
+    echo -e "${YELLOW}MANUAL STEPS REQUIRED:${NC}"
+    echo ""
+    echo "  1. CREATE THE AUTO-ROLLBACK WORKFLOW"
+    echo "     a. Go to: Kibana → Management → Workflows"
+    echo "     b. Click 'Create Workflow'"
+    echo "     c. Paste contents from: elastic-assets/workflows/auto-rollback-workflow.yaml"
+    echo "     d. Click 'Save'"
+    echo ""
+    echo "  2. LINK WORKFLOW TO ALERT"
+    echo "     a. Go to: Kibana → Observability → Alerts → Manage Rules"
+    echo "     b. Edit the 'SLO Burn Rate' rule"
+    echo "     c. In Actions section, add 'Run Workflow' action"
+    echo "     d. Select workflow: 'auto-rollback-on-latency'"
+    echo "     e. Save the rule"
+    echo ""
+    echo "  3. START TRAFFIC & DEPLOY BAD VERSION"
+    echo "     ./scripts/load-generator.sh &"
+    echo "     ./scripts/deploy.sh order-service v1.1-bad"
+    echo ""
+    echo -e "${BLUE}Access Points:${NC}"
+    echo "  • Kibana: ${KIBANA_URL}"
+    echo "  • Agent Builder: Kibana → Search → AI Assistants"
+    echo "  • SLOs: Kibana → Observability → SLOs"
     echo ""
     echo -e "${BLUE}===============================================================${NC}"
 }
