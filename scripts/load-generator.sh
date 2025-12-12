@@ -52,6 +52,10 @@ FAILED_REQUESTS=0
 # =============================================================================
 
 print_banner() {
+    # Skip banner output if logging to file (silent mode)
+    if [[ "$LOG_TO_FILE" == "true" ]]; then
+        return
+    fi
     echo -e "${BLUE}"
     echo "==============================================================="
     echo "  LOAD GENERATOR"
@@ -192,12 +196,10 @@ log_output() {
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 
     if [[ "$LOG_TO_FILE" == "true" ]]; then
-        # Strip ANSI color codes for log file
+        # Strip ANSI color codes for log file and write ONLY to file (no stdout)
         local clean_message
         clean_message=$(echo -e "$message" | sed 's/\x1b\[[0-9;]*m//g')
         echo "[${timestamp}] ${clean_message}" >> "$LOG_FILE"
-        # Also echo to stdout (without timestamp, with colors)
-        echo -e "$message"
     else
         echo -e "$message"
     fi
@@ -242,9 +244,7 @@ done
 # Create logs directory if logging to file
 if [[ "$LOG_TO_FILE" == "true" ]]; then
     mkdir -p "$LOG_DIR"
-    echo "Logging to: $LOG_FILE"
-    echo ""
-    # Write startup header to log
+    # Write startup header to log (no stdout output - silent mode)
     echo "=========================================" >> "$LOG_FILE"
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Load Generator Started" >> "$LOG_FILE"
     echo "  Target: ${ORDER_SERVICE_URL}" >> "$LOG_FILE"
@@ -261,21 +261,21 @@ SLEEP_INTERVAL=$(echo "scale=3; 1 / $RATE" | bc)
 print_banner
 
 # Wait for service to be available
-echo "Waiting for Order Service to be available..."
+[[ "$LOG_TO_FILE" != "true" ]] && echo "Waiting for Order Service to be available..."
 max_wait=30
 waited=0
 while ! curl -s -f "${ORDER_SERVICE_URL}/api/orders/health" > /dev/null 2>&1; do
     if [[ $waited -ge $max_wait ]]; then
-        echo -e "${RED}Order Service not available after ${max_wait} seconds${NC}"
+        [[ "$LOG_TO_FILE" != "true" ]] && echo -e "${RED}Order Service not available after ${max_wait} seconds${NC}"
         exit 1
     fi
-    echo -n "."
+    [[ "$LOG_TO_FILE" != "true" ]] && echo -n "."
     sleep 1
     ((waited++))
 done
-echo ""
-echo -e "${GREEN}Order Service is available${NC}"
-echo ""
+[[ "$LOG_TO_FILE" != "true" ]] && echo ""
+[[ "$LOG_TO_FILE" != "true" ]] && echo -e "${GREEN}Order Service is available${NC}"
+[[ "$LOG_TO_FILE" != "true" ]] && echo ""
 
 # Main loop
 START_TIME=$(date +%s)

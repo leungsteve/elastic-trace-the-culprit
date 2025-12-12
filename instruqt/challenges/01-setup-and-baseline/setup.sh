@@ -54,9 +54,9 @@ echo "Generating baseline traffic for ML training..."
 echo "Waiting for telemetry data to populate..."
 sleep 20
 
-# Start load generator in background with logging
+# Start load generator in background with logging (fully detached)
 echo "Starting load generator (background)..."
-nohup ./scripts/load-generator.sh --log > /dev/null 2>&1 &
+setsid ./scripts/load-generator.sh --log </dev/null >/dev/null 2>&1 &
 sleep 2
 
 echo "==========================================="
