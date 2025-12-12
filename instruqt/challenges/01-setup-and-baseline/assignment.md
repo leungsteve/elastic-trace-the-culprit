@@ -32,7 +32,7 @@ cd /root/from-commit-to-culprit
 ```
 
 You should see all three services reporting healthy status:
-- **order-service** (Port 8080)
+- **order-service** (Port 8088)
 - **inventory-service** (Port 8081)
 - **payment-service** (Port 8082)
 
@@ -66,17 +66,17 @@ Navigate to **Observability > SLOs** in Kibana.
 
 You should see two Service Level Objectives configured:
 
-### Order Service Latency SLO
+### Order Service - Latency P95 < 500ms
 - **Target:** 95% of requests complete in less than 500ms
-- **Window:** 1-hour rolling window
+- **Window:** 7-day rolling window
 - **Current Status:** Should be healthy (green)
 
-### Order Service Availability SLO
+### Order Service - Availability 99%
 - **Target:** 99% of requests succeed
-- **Window:** 1-hour rolling window
+- **Window:** 30-day rolling window
 - **Current Status:** Should be healthy (green)
 
-Click on the **Order Service Latency SLO** to view details. Note:
+Click on the **Order Service - Latency P95 < 500ms** SLO to view details. Note:
 - **SLI (Service Level Indicator):** The current percentage meeting the target
 - **Error Budget:** The remaining buffer before violating the SLO
 - **Burn Rate:** How quickly the error budget is being consumed

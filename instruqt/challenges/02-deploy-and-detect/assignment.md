@@ -100,7 +100,7 @@ Watch the **Latency** chart:
 
 ### In the SLO Dashboard:
 
-Watch the **Order Service Latency SLO**:
+Watch the **Order Service - Latency P95 < 500ms** SLO:
 - **SLI percentage** will start dropping (requests no longer meeting the 500ms target)
 - **Burn rate** will increase dramatically (6x or higher)
 - The status indicator will turn yellow or red
@@ -118,19 +118,18 @@ T+3:00  - Alert fires (you'll see it in Observability > Alerts)
 
 ## Step 5: Observe the Business Impact
 
-Navigate to **Analytics > Dashboard** and open the **NovaMart Business Impact Dashboard**.
+Return to **Observability > APM > Services > order-service** and observe the impact:
 
-You should see:
-- **Error rate** climbing
-- **Failed orders** accumulating
-- **Estimated revenue impact** counter ticking up
+- **Latency chart:** Requests are now taking ~2000ms instead of ~100-300ms
+- **Failed transaction rate:** May show increased failures due to timeouts
+- **Throughput:** Requests per minute may drop as the system struggles
 
-The dashboard calculates:
+You can estimate revenue impact using the formula:
 ```
 Revenue Impact = Failed Orders × $47.50 (average order value)
 ```
 
-Take note of the **cumulative revenue impact**. This is what you will report to Sam Patel.
+In Challenge 4, you will use Agent Builder to calculate the exact business impact.
 
 ## Step 6: Watch the Alert Fire
 
@@ -173,7 +172,6 @@ Before moving to the next challenge, verify:
 - [ ] Latency has increased to ~2000ms
 - [ ] SLO burn rate is elevated (6x or higher)
 - [ ] Alert has fired (visible in Observability > Alerts)
-- [ ] Business impact is visible on the dashboard
 - [ ] Deployment annotation is visible in APM
 
 ## What You Learned

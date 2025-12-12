@@ -29,7 +29,7 @@ In this challenge, you will:
 
 Navigate to **Search > AI Assistants** or **Agent Builder** in Kibana (the location may vary based on your Kibana version).
 
-You should see an agent configured for this workshop: **NovaMart SRE Assistant** (or similar name).
+You should see an agent configured for this workshop: **NovaMart Incident Investigation Assistant**.
 
 Open the agent to start a conversation.
 
@@ -37,16 +37,21 @@ Open the agent to start a conversation.
 
 Agent Builder can query your telemetry data and synthesize a chronological timeline.
 
-Try asking:
+The agent has access to 8 custom investigation tools plus 7 built-in Elastic tools. Try asking specific questions that leverage these tools:
 
+**Service Health:**
 ```
-What happened in the last hour?
+What's the current health of the order-service?
 ```
 
-or
-
+**Deployment History:**
 ```
-Create an incident timeline for the order-service deployment
+Show me recent deployments
+```
+
+**Incident Timeline:**
+```
+Build an incident timeline for order-service over the last hour
 ```
 
 The agent should respond with a timeline similar to:
@@ -82,32 +87,42 @@ Agent Builder can access deployment metadata to show what changed between versio
 Ask:
 
 ```
-What code changed between v1.0 and v1.1-bad?
+What code changes were in that deployment?
 ```
 
 or
 
 ```
-Show me the diff for commit a1b2c3d4
+Show me the code diff from the most recent deployment
 ```
 
-The agent should respond with information about the change:
+The agent should use the **deployment-code-changes** tool and respond with details about the change:
 
 ```
-The deployment v1.1-bad (commit a1b2c3d4) by Jordan Rivera included:
+Deployment: v1.1-bad
+Service: order-service
+Commit: a1b2c3d4
+Author: jordan.rivera
+PR: PR-1247
 
-File: OrderController.java
-Change: Added detailed trace logging with synchronous file I/O
+File Modified: src/main/java/com/novamart/order/service/OrderService.java
+Method: createOrder
 
-The problematic code:
-- Added a 2000ms sleep to simulate synchronous disk writes
-- Added custom span "detailed-trace-logging" for visibility
-- Span attributes included author, commit, and PR metadata
+Code Before:
+// Direct order processing
+Order order = new Order(request);
+orderRepository.save(order);
 
-Impact:
-- Every request was delayed by 2 seconds
-- SLO latency target (500ms) was violated
-- Error budget burned at 6x+ sustainable rate
+Code After:
+// Connection pool optimization - warm up connections
+...
+Thread.sleep(2000);  // THE BUG - unnecessary delay
+...
+Order order = new Order(request);
+orderRepository.save(order);
+
+Issue: The Thread.sleep(2000) was intended for testing but was accidentally 
+left in production code, causing a 2-second delay on every order request.
 ```
 
 This information comes from the deployment metadata documents stored during setup.
@@ -116,16 +131,16 @@ This information comes from the deployment metadata documents stored during setu
 
 Now let's quantify the business impact for stakeholder reporting.
 
-Ask:
+Ask (using actual timestamps from your environment):
 
 ```
-What was the total business impact of this incident?
+Calculate the business impact from 06:43 to 07:00 today for order-service
 ```
 
 or
 
 ```
-Calculate revenue lost during the incident window
+What was the revenue loss during the incident?
 ```
 
 The agent should use the **business-impact-calculator** tool to respond:
@@ -133,24 +148,17 @@ The agent should use the **business-impact-calculator** tool to respond:
 ```
 Business Impact Analysis:
 
-Incident Duration: 6 minutes (14:47 - 14:53)
+Time Window: 2025-12-10 06:43:00Z to 07:00:00Z (17 minutes)
 
-Failed Transactions: 60 orders
-Estimated Revenue Loss: $2,850
-  (60 failed orders × $47.50 average order value)
+Failed Transactions: 127
+Estimated Revenue Loss: $6,032.50
+  (127 failed orders × $47.50 average order value)
 
-Additional Impact:
-- SLO Error Budget Consumed: 8% of monthly budget
-- Customer Experience: 487 slow requests (2+ seconds)
-- Social Media Mentions: Increased complaints detected
-
-Estimated Total Cost:
-- Direct revenue loss: $2,850
-- Error budget consumption: 8%
-- Customer satisfaction impact: Medium
+Recommendation: This represents significant revenue loss. The rapid 
+automated rollback minimized the impact.
 ```
 
-This calculation uses actual transaction data from APM.
+This calculation uses actual transaction data from APM traces. The exact numbers will vary based on when you run the workshop and how long the bad deployment was active.
 
 ## Step 5: Create a Case
 
@@ -215,7 +223,45 @@ Action Items:
 
 Click **Create Case**.
 
-## Step 6: Review Key Takeaways
+## Step 6: Understanding Agent Builder Tools
+
+The NovaMart Incident Investigation Assistant has access to **15 tools** total:
+
+### Custom Investigation Tools (8)
+
+These ES|QL-based tools were created specifically for this workshop:
+
+1. **service-health-snapshot** - Get current service metrics (latency, throughput, errors)
+2. **apm-latency-comparison** - Compare latency before/after a specific timestamp
+3. **deployment-timeline** - View deployment history with timestamps
+4. **deployment-code-changes** - Retrieve full code diffs from deployments
+5. **error-pattern-analysis** - Group and analyze error patterns
+6. **business-impact-calculator** - Calculate revenue loss ($47.50 per failed order)
+7. **incident-timeline** - Build minute-by-minute incident timelines
+8. **slo-status-budget** - Check SLO compliance and error budget status
+
+### Built-in Elastic Tools (7)
+
+These platform tools provide data access and query capabilities:
+
+- **platform.core.search** - Full-text and analytical searches
+- **platform.core.execute_esql** - Execute ES|QL queries
+- **platform.core.generate_esql** - Generate ES|QL from natural language
+- **platform.core.list_indices** - List available indices
+- **platform.core.get_index_mapping** - Get index field mappings
+- **platform.core.get_document_by_id** - Fetch specific documents
+- **platform.core.cases** - Search and retrieve Cases
+
+### How the Agent Uses Tools
+
+When you ask a question, the agent:
+1. Determines which tool(s) can answer your question
+2. Calls the appropriate tool(s) with parameters
+3. Synthesizes the results into a natural language response
+
+You can see which tools were used in the conversation history.
+
+## Step 7: Review Key Takeaways
 
 Before wrapping up, let's reflect on what made this investigation successful.
 
@@ -268,6 +314,34 @@ To prevent similar incidents:
    - Strengthen PR review process for performance-critical code
    - Require two reviewers for changes to core request paths
    - Schedule blameless post-mortems to share learnings
+
+## Troubleshooting Agent Builder
+
+If the agent doesn't respond as expected:
+
+**Agent not found:**
+- Verify you're in the correct Kibana space
+- Check: Search > AI Assistants
+- Look for "NovaMart Incident Investigation Assistant"
+
+**Tools return no data:**
+- Ensure services are running and generating traces
+- Check that the load generator is active
+- Verify you're using recent timestamps in your queries
+
+**Unexpected responses:**
+- Try rephrasing your question
+- Be specific about service names (e.g., "order-service")
+- Include timestamps in ISO format (e.g., "2025-12-10T06:43:00Z")
+
+**Example questions that work well:**
+```
+What's the current health of the order-service?
+Show me recent deployments
+What code changes were in that deployment?
+Calculate business impact from [start] to [end] for order-service
+Build an incident timeline for order-service over the last hour
+```
 
 ## Bonus: Explore Additional Features
 
@@ -323,7 +397,7 @@ You practiced the full incident response lifecycle using Elastic Observability.
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/elastic/from-commit-to-culprit.git
+   git clone https://github.com/leungsteve/elastic-trace-the-culprit.git
    ```
    Run it locally against your own Elastic Cloud deployment
 

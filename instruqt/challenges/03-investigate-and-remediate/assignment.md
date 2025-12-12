@@ -136,14 +136,15 @@ The Workflow is configured to:
 2. Send a webhook to the rollback service
 3. Trigger an automated rollback to the previous version (v1.0)
 
-Navigate to **Stack Management > Alerts and Workflows > Rules** to see the rule configuration.
+Navigate to **Management > Rules** to see the rule configuration.
 
 ### Watch for Rollback
 
 Monitor the terminal or run:
 
 ```bash
-docker-compose -f /root/from-commit-to-culprit/infra/docker-compose.yml logs -f order-service
+cd /root/from-commit-to-culprit
+docker compose -f infra/docker-compose.yml logs -f order-service
 ```
 
 You should see the order-service container restart as it rolls back to v1.0.
@@ -172,7 +173,7 @@ Watch the latency chart. You should see:
 
 Navigate to **Observability > SLOs**.
 
-The **Order Service Latency SLO** should:
+The **Order Service - Latency P95 < 500ms** SLO should:
 - Show improving SLI percentage
 - Burn rate returning to normal levels
 - Status transitioning from red/yellow back to green
@@ -186,16 +187,15 @@ The **Order Service SLO Burn Rate** alert should transition to:
 - **Last alert:** Shows when it fired
 - **Duration:** Shows how long the incident lasted
 
-## Step 9: Calculate Total Impact
+## Step 9: Note the Impact
 
-Return to **Analytics > Dashboard** and view the **NovaMart Business Impact Dashboard**.
+Before moving on, take note of the approximate incident duration and impact:
 
-Note the final numbers:
-- Total failed orders during the incident
-- Total estimated revenue impact
-- Incident duration
+- **Incident start:** When you deployed v1.1-bad
+- **Incident end:** When the rollback completed
+- **Duration:** Approximately how many minutes
 
-This is what you will report to Sam Patel.
+In Challenge 4, you will use Agent Builder to calculate the exact business impact and create a Case for documentation.
 
 ## Checkpoint
 
