@@ -81,9 +81,9 @@ ELASTIC_APM_SECRET_TOKEN=${APM_SECRET}
 WEBHOOK_PUBLIC_URL=http://host-1:9000
 
 # -----------------------------------------------------------------------------
-# Container Registry
+# Container Registry (pre-built images on GitHub Container Registry)
 # -----------------------------------------------------------------------------
-REGISTRY=localhost:5000
+REGISTRY=ghcr.io/leungsteve
 
 # -----------------------------------------------------------------------------
 # Service Versions
@@ -129,9 +129,7 @@ echo "  SETUP COMPLETE"
 echo "==============================================================="
 echo ""
 echo "Next steps:"
-echo "  1. Start registry:     cd infra && docker compose up -d registry"
-echo "  2. Build images:       ./scripts/build-images.sh"
-echo "  3. Start services:     cd infra && docker compose up -d"
-echo "  4. Provision Elastic:  ./scripts/setup-elastic.sh"
-echo "  5. Generate traffic:   ./scripts/load-generator.sh &"
+echo "  1. Pull and start services:  cd infra && docker compose pull && docker compose up -d"
+echo "  2. Provision Elastic:        ./scripts/setup-elastic.sh"
+echo "  3. Generate traffic:         ./scripts/load-generator.sh &"
 echo ""
