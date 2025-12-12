@@ -179,6 +179,29 @@ api_call() {
     fi
 }
 
+find_slo_by_name() {
+    local name=$1
+    local response
+    response=$(curl -s -X GET "${KIBANA_URL}/api/observability/slos?name=${name// /%20}" \
+        -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+        -H "kbn-xsrf: true" 2>/dev/null)
+
+    # Extract SLO ID if found
+    echo "$response" | jq -r ".results[] | select(.name == \"${name}\") | .id" 2>/dev/null | head -1
+}
+
+delete_slo() {
+    local slo_id=$1
+    local name=$2
+
+    if [[ -n "$slo_id" ]]; then
+        print_info "Deleting existing SLO: ${name} (${slo_id})"
+        curl -s -X DELETE "${KIBANA_URL}/api/observability/slos/${slo_id}" \
+            -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+            -H "kbn-xsrf: true" > /dev/null 2>&1
+    fi
+}
+
 create_slo() {
     local name=$1
     local file=$2
@@ -189,6 +212,13 @@ create_slo() {
     if [[ ! -f "$file" ]]; then
         print_error "SLO file not found: ${file}"
         return 1
+    fi
+
+    # Check for existing SLO and delete it
+    local existing_id
+    existing_id=$(find_slo_by_name "$name")
+    if [[ -n "$existing_id" ]]; then
+        delete_slo "$existing_id" "$name"
     fi
 
     local data
@@ -215,15 +245,27 @@ create_slo() {
     fi
 }
 
-rule_exists() {
+find_rule_by_name() {
     local name=$1
     local response
     response=$(curl -s -X GET "${KIBANA_URL}/api/alerting/rules/_find?search=${name// /%20}&per_page=100" \
         -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
         -H "kbn-xsrf: true" 2>/dev/null)
-    
-    # Check if a rule with exact name exists
-    echo "$response" | jq -e ".data[] | select(.name == \"${name}\")" > /dev/null 2>&1
+
+    # Extract rule ID if found
+    echo "$response" | jq -r ".data[] | select(.name == \"${name}\") | .id" 2>/dev/null | head -1
+}
+
+delete_rule() {
+    local rule_id=$1
+    local name=$2
+
+    if [[ -n "$rule_id" ]]; then
+        print_info "Deleting existing rule: ${name} (${rule_id})"
+        curl -s -X DELETE "${KIBANA_URL}/api/alerting/rule/${rule_id}" \
+            -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+            -H "kbn-xsrf: true" > /dev/null 2>&1
+    fi
 }
 
 create_rule() {
@@ -234,10 +276,11 @@ create_rule() {
 
     print_info "Creating alert rule: ${name}"
 
-    # Check if rule already exists
-    if rule_exists "$name"; then
-        print_info "Rule '${name}' already exists - skipping"
-        return 0
+    # Check for existing rule and delete it
+    local existing_id
+    existing_id=$(find_rule_by_name "$name")
+    if [[ -n "$existing_id" ]]; then
+        delete_rule "$existing_id" "$name"
     fi
 
     if [[ ! -f "$file" ]]; then
@@ -280,16 +323,35 @@ create_rule() {
         rule_id=$(echo "$body" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
         print_success "Created rule: ${name} (ID: ${rule_id})"
         return 0
-    elif [[ "$http_code" == "409" ]]; then
-        print_info "Rule '${name}' already exists"
-        return 0
     else
         print_error "Failed to create rule '${name}': HTTP ${http_code}"
-        # Show error details
         local error_msg
         error_msg=$(echo "$body" | jq -r '.message // .error // .' 2>/dev/null || echo "$body")
         print_error "Error: ${error_msg}"
         return 1
+    fi
+}
+
+find_connector_by_name() {
+    local name=$1
+    local response
+    response=$(curl -s -X GET "${KIBANA_URL}/api/actions/connectors" \
+        -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+        -H "kbn-xsrf: true" 2>/dev/null)
+
+    # Extract connector ID if found
+    echo "$response" | jq -r ".[] | select(.name == \"${name}\") | .id" 2>/dev/null | head -1
+}
+
+delete_connector() {
+    local connector_id=$1
+    local name=$2
+
+    if [[ -n "$connector_id" ]]; then
+        print_info "Deleting existing connector: ${name} (${connector_id})"
+        curl -s -X DELETE "${KIBANA_URL}/api/actions/connector/${connector_id}" \
+            -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+            -H "kbn-xsrf: true" > /dev/null 2>&1
     fi
 }
 
@@ -303,6 +365,13 @@ create_connector() {
     if [[ ! -f "$file" ]]; then
         print_error "Connector file not found: ${file}"
         return 1
+    fi
+
+    # Check for existing connector and delete it
+    local existing_id
+    existing_id=$(find_connector_by_name "$name")
+    if [[ -n "$existing_id" ]]; then
+        delete_connector "$existing_id" "$name"
     fi
 
     local data
@@ -329,7 +398,7 @@ create_connector() {
             print_info "Connector ID: ${connector_id}"
         fi
     else
-        print_info "Connector may already exist or there was an error"
+        print_info "Connector creation failed"
     fi
 }
 
