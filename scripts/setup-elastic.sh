@@ -838,12 +838,15 @@ create_tool_direct() {
         delete_tool "$existing"
     fi
 
+    # Escape double quotes in query for JSON embedding
+    local escaped_query="${query//\"/\\\"}"
+
     # Build JSON payload directly (avoids jq multi-line issues)
     local payload
     if [[ "$params" == "{}" || -z "$params" ]]; then
-        payload="{\"id\":\"${tool_id}\",\"type\":\"esql\",\"description\":\"${description}\",\"tags\":[\"workshop\",\"novamart\"],\"configuration\":{\"params\":{},\"query\":\"${query}\"}}"
+        payload="{\"id\":\"${tool_id}\",\"type\":\"esql\",\"description\":\"${description}\",\"tags\":[\"workshop\",\"novamart\"],\"configuration\":{\"params\":{},\"query\":\"${escaped_query}\"}}"
     else
-        payload="{\"id\":\"${tool_id}\",\"type\":\"esql\",\"description\":\"${description}\",\"tags\":[\"workshop\",\"novamart\"],\"configuration\":{\"params\":${params},\"query\":\"${query}\"}}"
+        payload="{\"id\":\"${tool_id}\",\"type\":\"esql\",\"description\":\"${description}\",\"tags\":[\"workshop\",\"novamart\"],\"configuration\":{\"params\":${params},\"query\":\"${escaped_query}\"}}"
     fi
 
     local response http_code body
