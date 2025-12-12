@@ -577,6 +577,64 @@ index_deployment_metadata() {
     fi
 }
 
+setup_workflows() {
+    echo ""
+    echo -e "${BLUE}Setting up Workflows...${NC}"
+    echo ""
+
+    # Enable Workflows UI
+    print_info "Enabling Workflows UI..."
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "${KIBANA_URL}/internal/kibana/settings" \
+        -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -H "kbn-xsrf: true" \
+        -H "elastic-api-version: 1" \
+        -d '{"changes":{"workflows:ui:enabled":true}}' 2>/dev/null || echo -e "\n000")
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+
+    if [[ "$http_code" == "200" ]]; then
+        print_success "Workflows UI enabled"
+    else
+        print_info "Workflows UI may already be enabled or not available (HTTP ${http_code})"
+    fi
+
+    # Create workflow YAML file for manual import
+    local workflow_file="${ASSETS_DIR}/workflows/auto-rollback-workflow.yaml"
+    print_info "Creating workflow definition file..."
+
+    cat > "$workflow_file" << 'EOF'
+name: auto-rollback-on-latency
+description: Automatically triggers rollback when SLO burn rate alert fires
+triggers:
+  - type: alert
+steps:
+  - name: trigger_rollback
+    type: http
+    with:
+      url: "http://host-1:9000/rollback"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body:
+        service: "order-service"
+        target_version: "v1.0"
+        alert_id: "{{ alert.id }}"
+        reason: "SLO burn rate alert triggered automatic rollback"
+EOF
+
+    print_success "Workflow YAML saved to: ${workflow_file}"
+    echo ""
+    print_info "To create the workflow:"
+    print_info "  1. Go to Kibana → Management → Workflows"
+    print_info "  2. Click 'Create Workflow'"
+    print_info "  3. Paste the YAML from: ${workflow_file}"
+    print_info "  4. Save the workflow"
+    print_info "  5. Configure SLO Burn Rate alert to use 'Run Workflow' action"
+}
+
 setup_agent_builder() {
     echo ""
     echo -e "${BLUE}Setting up Agent Builder...${NC}"
@@ -665,6 +723,7 @@ print_summary() {
     echo "The following Elastic assets have been provisioned:"
     echo "  - SLOs (latency and availability)"
     echo "  - Alert rules (threshold and burn rate)"
+    echo "  - Workflows UI enabled + workflow YAML created"
     echo "  - ML anomaly detection job"
     echo "  - Webhook connector for rollback (if WEBHOOK_PUBLIC_URL set)"
     echo "  - Agent Builder tools and agent"
@@ -701,6 +760,9 @@ main() {
 
     # Create alert rules (can now reference SLO IDs and connector IDs)
     setup_alerts
+
+    # Enable Workflows and create workflow definition
+    setup_workflows
 
     # Create ML jobs for anomaly detection
     setup_ml_jobs
