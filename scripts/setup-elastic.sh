@@ -207,22 +207,28 @@ delete_all_slos_by_name() {
 }
 
 create_slo() {
-    local name=$1
+    local label=$1
     local file=$2
     local var_name=$3
 
-    print_info "Creating SLO: ${name}"
+    print_info "Creating SLO: ${label}"
 
     if [[ ! -f "$file" ]]; then
         print_error "SLO file not found: ${file}"
         return 1
     fi
 
-    # Delete ALL existing SLOs with this name
-    delete_all_slos_by_name "$name"
-
     local data
     data=$(cat "$file")
+
+    # Extract the actual SLO name from the JSON file (this is what Kibana stores)
+    local actual_name
+    actual_name=$(echo "$data" | jq -r '.name' 2>/dev/null)
+
+    # Delete ALL existing SLOs with the actual name from the JSON
+    if [[ -n "$actual_name" && "$actual_name" != "null" ]]; then
+        delete_all_slos_by_name "$actual_name"
+    fi
 
     # Substitute environment-specific values
     data=$(echo "$data" | sed "s|{{SLO_LATENCY_THRESHOLD}}|${SLO_LATENCY_THRESHOLD:-500000}|g")
@@ -230,7 +236,7 @@ create_slo() {
 
     local response
     if response=$(api_call POST "/api/observability/slos" "$data"); then
-        print_success "Created SLO: ${name}"
+        print_success "Created SLO: ${actual_name:-$label}"
 
         # Extract SLO ID from response
         local slo_id
