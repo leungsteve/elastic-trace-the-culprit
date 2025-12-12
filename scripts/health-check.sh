@@ -54,9 +54,14 @@ check_service() {
     local url=$2
     local health_endpoint="${url}/health"
 
-    # Special case for OTEL collector
+    # Special case for OTEL collector (health check is at root)
     if [[ "$name" == "otel-collector" ]]; then
         health_endpoint="${url}"
+    fi
+
+    # Special case for order-service (health check is at /api/orders/health)
+    if [[ "$name" == "order-service" ]]; then
+        health_endpoint="${url}/api/orders/health"
     fi
 
     printf "  %-20s " "${name}:"
@@ -140,43 +145,6 @@ check_elastic_connection() {
     fi
 }
 
-check_registry() {
-    echo ""
-    echo -e "${BLUE}Container Registry:${NC}"
-    echo ""
-
-    printf "  %-20s " "Registry:"
-
-    local response
-    response=$(curl -s -w "\n%{http_code}" -m 5 "http://localhost:5000/v2/_catalog" 2>/dev/null || echo -e "\n000")
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [[ "$http_code" == "200" ]]; then
-        echo -e "${GREEN}RUNNING${NC}"
-
-        # List available images
-        local catalog
-        catalog=$(echo "$response" | sed '$d')
-        echo ""
-        echo "  Available images:"
-        echo "$catalog" | grep -o '"[^"]*"' | tr -d '"' | while read -r repo; do
-            # Get tags for each repo
-            local tags
-            tags=$(curl -s "http://localhost:5000/v2/${repo}/tags/list" 2>/dev/null | grep -o '"tags":\[[^]]*\]' | grep -o '"[^"]*"' | tr -d '"' | grep -v tags || echo "")
-            if [[ -n "$tags" ]]; then
-                for tag in $tags; do
-                    echo "    - ${repo}:${tag}"
-                done
-            fi
-        done
-        return 0
-    else
-        echo -e "${RED}NOT RUNNING${NC}"
-        return 1
-    fi
-}
-
 print_summary() {
     echo ""
     echo -e "${BLUE}===============================================================${NC}"
@@ -221,7 +189,6 @@ main() {
 
     check_containers
     check_elastic_connection || true
-    check_registry || true
 
     print_summary
 }
