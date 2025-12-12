@@ -7,7 +7,7 @@ services:
   # =============================================================================
 
   order-service:
-    image: ${REGISTRY:-localhost:5000}/order-service:${ORDER_SERVICE_VERSION:-v1.0}
+    image: ${REGISTRY:-ghcr.io/leungsteve}/order-service:${ORDER_SERVICE_VERSION:-v1.0}
     container_name: order-service
     ports:
       - "8088:8080"
@@ -41,7 +41,7 @@ services:
     restart: unless-stopped
 
   inventory-service:
-    image: ${REGISTRY:-localhost:5000}/inventory-service:${INVENTORY_SERVICE_VERSION:-v1.0}
+    image: ${REGISTRY:-ghcr.io/leungsteve}/inventory-service:${INVENTORY_SERVICE_VERSION:-v1.0}
     container_name: inventory-service
     ports:
       - "8081:8081"
@@ -68,7 +68,7 @@ services:
     restart: unless-stopped
 
   payment-service:
-    image: ${REGISTRY:-localhost:5000}/payment-service:${PAYMENT_SERVICE_VERSION:-v1.0}
+    image: ${REGISTRY:-ghcr.io/leungsteve}/payment-service:${PAYMENT_SERVICE_VERSION:-v1.0}
     container_name: payment-service
     ports:
       - "8082:8082"
@@ -99,7 +99,7 @@ services:
   # =============================================================================
 
   rollback-webhook:
-    image: ${REGISTRY:-localhost:5000}/rollback-webhook:v1.0
+    image: ${REGISTRY:-ghcr.io/leungsteve}/rollback-webhook:v1.0
     container_name: rollback-webhook
     ports:
       - "9000:9000"
@@ -145,17 +145,6 @@ services:
       - workshop
     restart: unless-stopped
 
-  registry:
-    image: registry:2.8.3
-    container_name: registry
-    ports:
-      - "5000:5000"
-    volumes:
-      - registry-data:/var/lib/registry
-    networks:
-      - workshop
-    restart: unless-stopped
-
 # =============================================================================
 # NETWORKS AND VOLUMES
 # =============================================================================
@@ -166,6 +155,3 @@ networks:
     ipam:
       config:
         - subnet: 172.28.0.0/16
-
-volumes:
-  registry-data:
