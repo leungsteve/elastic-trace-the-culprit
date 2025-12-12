@@ -181,21 +181,26 @@ api_call() {
 
 delete_all_slos_by_name() {
     local name=$1
+    echo "    DEBUG: Fetching SLOs..." >&2
     local response
     response=$(curl -s --max-time 30 -X GET "${KIBANA_URL}/api/observability/slos?perPage=100" \
         -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
         -H "kbn-xsrf: true" 2>/dev/null)
+    echo "    DEBUG: Got response (${#response} bytes)" >&2
 
     # Find ALL SLOs matching the name and delete each one
     # Use --arg to safely pass the name (handles special chars like < > etc)
+    echo "    DEBUG: Filtering for name: $name" >&2
     local slo_ids
     slo_ids=$(echo "$response" | jq -r --arg n "$name" '.results[] | select(.name == $n) | .id' 2>/dev/null)
+    echo "    DEBUG: Found SLO IDs: $(echo "$slo_ids" | wc -l | tr -d ' ') matches" >&2
 
     if [[ -n "$slo_ids" ]]; then
         local count=0
         while IFS= read -r slo_id; do
             if [[ -n "$slo_id" ]]; then
-                curl -s -X DELETE "${KIBANA_URL}/api/observability/slos/${slo_id}" \
+                echo "    DEBUG: Deleting SLO $slo_id..." >&2
+                curl -s --max-time 30 -X DELETE "${KIBANA_URL}/api/observability/slos/${slo_id}" \
                     -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
                     -H "kbn-xsrf: true" > /dev/null 2>&1
                 ((count++))
@@ -205,6 +210,7 @@ delete_all_slos_by_name() {
             print_info "Deleted ${count} existing SLO(s): ${name}"
         fi
     fi
+    echo "    DEBUG: delete_all_slos_by_name complete" >&2
 }
 
 create_slo() {
@@ -219,17 +225,23 @@ create_slo() {
         return 1
     fi
 
+    echo "  DEBUG: Reading file..." >&2
     local data
     data=$(cat "$file")
+    echo "  DEBUG: File read (${#data} bytes)" >&2
 
     # Extract the actual SLO name from the JSON file (this is what Kibana stores)
     # Use grep instead of jq because the file has template placeholders that make it invalid JSON
+    echo "  DEBUG: Extracting name..." >&2
     local actual_name
     actual_name=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' "$file" | head -1 | sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')
+    echo "  DEBUG: Extracted name: '$actual_name'" >&2
 
     # Delete ALL existing SLOs with the actual name from the JSON
     if [[ -n "$actual_name" && "$actual_name" != "null" ]]; then
+        echo "  DEBUG: Calling delete_all_slos_by_name..." >&2
         delete_all_slos_by_name "$actual_name"
+        echo "  DEBUG: Deletion complete" >&2
     fi
 
     # Substitute environment-specific values
