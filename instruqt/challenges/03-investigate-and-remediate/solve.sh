@@ -7,7 +7,7 @@ echo "==========================================="
 echo "Auto-solving Challenge 3: Investigate and Remediate"
 echo "==========================================="
 
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 
 # Check if already on v1.0
 source infra/.env

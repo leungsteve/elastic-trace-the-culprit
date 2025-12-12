@@ -8,7 +8,7 @@ echo "==========================================="
 echo "Setting up Challenge 4: Learn and Prevent"
 echo "==========================================="
 
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 
 # Ensure services are running v1.0 (recovered state)
 source infra/.env

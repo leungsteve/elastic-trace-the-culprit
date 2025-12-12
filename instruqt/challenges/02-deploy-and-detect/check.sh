@@ -5,7 +5,7 @@ set -e
 
 echo "Checking Challenge 2 completion..."
 
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 source infra/.env
 
 # Check 1: Verify v1.1-bad is deployed
@@ -17,7 +17,7 @@ if [ "$CURRENT_VERSION" != "v1.1-bad" ]; then
 fi
 
 # Check 2: Verify container is running the bad version
-CONTAINER_IMAGE=$(docker inspect from-commit-to-culprit-order-service-1 --format='{{.Config.Image}}' 2>/dev/null || echo "")
+CONTAINER_IMAGE=$(docker inspect elastic-trace-the-culprit-order-service-1 --format='{{.Config.Image}}' 2>/dev/null || echo "")
 
 if [[ ! "$CONTAINER_IMAGE" =~ "v1.1-bad" ]]; then
     fail-message "order-service container is not running v1.1-bad. Please ensure the deployment completed successfully."

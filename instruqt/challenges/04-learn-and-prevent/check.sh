@@ -5,7 +5,7 @@ set -e
 
 echo "Checking Challenge 4 completion..."
 
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 source infra/.env
 
 # Check 1: Verify service is on v1.0 (recovered)

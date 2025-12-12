@@ -8,7 +8,7 @@ echo "==========================================="
 echo "Auto-solving Challenge 1: Setup and Baseline"
 echo "==========================================="
 
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 
 # Run health check
 echo "Running health check..."

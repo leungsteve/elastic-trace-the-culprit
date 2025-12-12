@@ -5,7 +5,7 @@ set -e
 
 echo "Checking Challenge 3 completion..."
 
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 source infra/.env
 
 # Check 1: Verify service has rolled back to v1.0
@@ -17,7 +17,7 @@ if [ "$CURRENT_VERSION" != "v1.0" ]; then
 fi
 
 # Check 2: Verify container is running v1.0
-CONTAINER_IMAGE=$(docker inspect from-commit-to-culprit-order-service-1 --format='{{.Config.Image}}' 2>/dev/null || echo "")
+CONTAINER_IMAGE=$(docker inspect elastic-trace-the-culprit-order-service-1 --format='{{.Config.Image}}' 2>/dev/null || echo "")
 
 if [[ ! "$CONTAINER_IMAGE" =~ "v1.0" ]]; then
     fail-message "order-service container is not running v1.0. The rollback may not have completed. Check docker-compose logs."

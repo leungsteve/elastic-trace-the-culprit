@@ -19,7 +19,7 @@ In this challenge, you will:
 1. Verify all services are running and sending telemetry to Elastic
 2. Explore the service architecture in APM
 3. Review the baseline SLO status
-4. Generate some healthy traffic
+4. View baseline traffic and response times
 5. Understand what "normal" looks like
 
 ## Step 1: Verify Service Health
@@ -27,7 +27,7 @@ In this challenge, you will:
 Let's make sure all services are running properly.
 
 ```bash
-cd /root/from-commit-to-culprit
+cd elastic-trace-the-culprit/
 ./scripts/health-check.sh
 ```
 
@@ -101,17 +101,24 @@ Click on the **Order Service - Latency P95 < 500ms** SLO to view details. Note:
 
 Take a moment to understand these concepts. They will be critical during the incident.
 
-## Step 4: Generate Baseline Traffic
+## Step 4: View Baseline Traffic
 
-Let's generate some realistic traffic to establish a baseline.
+A load generator is already running in the background, sending realistic traffic to establish a baseline. You can watch the requests and response times in real-time:
 
 ```bash
-./scripts/load-generator.sh &
+tail -f logs/load-generator.log
 ```
 
-This script will send random order requests to the Order Service at a rate of 2-5 requests per second.
+You should see output like:
+```
+[2025-01-15 14:32:01] [OK] Order ORD-1234 - HTTP 201 - 187ms
+[2025-01-15 14:32:02] [OK] Order ORD-1235 - HTTP 201 - 203ms
+[2025-01-15 14:32:02] [OK] Order ORD-1236 - HTTP 201 - 156ms
+```
 
-Wait about 2 minutes for traffic to flow, then return to Kibana.
+Notice the response times are consistently in the 100-300ms range. This is healthy baseline behavior.
+
+Press `Ctrl+C` to stop tailing the log (the load generator will keep running).
 
 ## Step 5: Explore a Healthy Trace
 

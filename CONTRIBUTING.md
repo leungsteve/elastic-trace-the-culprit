@@ -16,8 +16,8 @@ Thank you for your interest in contributing to this Elastic Observability worksh
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/from-commit-to-culprit.git
-cd from-commit-to-culprit
+git clone https://github.com/your-org/elastic-trace-the-culprit.git
+cd elastic-trace-the-culprit
 
 # Start Elastic locally
 curl -fsSL https://elastic.co/start-local | sh

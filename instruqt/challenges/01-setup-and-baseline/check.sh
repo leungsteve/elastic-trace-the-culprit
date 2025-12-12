@@ -7,7 +7,7 @@ set -e
 echo "Checking Challenge 1 completion..."
 
 # Check 1: Verify services are running
-if ! docker-compose -f /root/from-commit-to-culprit/infra/docker-compose.yml ps | grep -q "Up"; then
+if ! docker-compose -f /root/elastic-trace-the-culprit/infra/docker-compose.yml ps | grep -q "Up"; then
     fail-message "Services are not running. Please ensure all services started successfully."
     exit 1
 fi
@@ -23,7 +23,7 @@ fi
 
 # Check 4: Verify telemetry is flowing to Elastic
 # Check that APM data exists for order-service
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 source infra/.env
 
 # Simple check: query for recent transactions

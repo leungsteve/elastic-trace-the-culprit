@@ -167,7 +167,7 @@ Navigate to **Management > Rules** to see the rule configuration.
 Monitor the terminal or run:
 
 ```bash
-cd /root/from-commit-to-culprit
+cd elastic-trace-the-culprit/
 docker compose -f infra/docker-compose.yml logs -f order-service
 ```
 
@@ -176,7 +176,7 @@ You should see the order-service container restart as it rolls back to v1.0.
 Alternatively, check the current version:
 
 ```bash
-grep ORDER_SERVICE_VERSION /root/from-commit-to-culprit/infra/.env
+grep ORDER_SERVICE_VERSION /root/elastic-trace-the-culprit/infra/.env
 ```
 
 After the rollback, it should show `v1.0`.

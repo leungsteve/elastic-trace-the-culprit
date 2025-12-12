@@ -9,7 +9,7 @@ echo "Setting up Challenge 1: Setup and Baseline"
 echo "==========================================="
 
 # Set working directory
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 
 # Ensure .env file exists with Instruqt configuration
 if [ ! -f "infra/.env" ]; then

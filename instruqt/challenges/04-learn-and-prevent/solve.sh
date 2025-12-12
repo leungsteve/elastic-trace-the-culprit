@@ -7,7 +7,7 @@ echo "==========================================="
 echo "Auto-solving Challenge 4: Learn and Prevent"
 echo "==========================================="
 
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 
 # Ensure system is recovered
 source infra/.env
@@ -44,7 +44,7 @@ echo ""
 echo "Thank you for participating in 'From Commit to Culprit'!"
 echo ""
 echo "Next steps:"
-echo "  1. Clone the repository: git clone https://github.com/elastic/from-commit-to-culprit.git"
+echo "  1. Clone the repository: git clone https://github.com/leungsteve/elastic-trace-the-culprit.git"
 echo "  2. Explore bonus challenges in docs/BONUS-CHALLENGES.md"
 echo "  3. Read the SRE Quick Reference in takeaways/SRE-QUICK-REFERENCE.md"
 echo "  4. Share your experience on social media with #ElasticObservability"

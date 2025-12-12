@@ -4,10 +4,31 @@
 
 **"From Commit to Culprit: An Observability Mystery"** is an Instruqt workshop that teaches DevOps engineers and SREs how to use Elastic Observability to investigate production incidents, trace problems to their source code, and implement automated remediation.
 
+### Incident Response Lifecycle
+
+The workshop teaches the **complete incident response lifecycle**:
+
+```
+DETECT  ──►  INVESTIGATE  ──►  REMEDIATE  ──►  LEARN
+  │              │                │              │
+  ▼              ▼                ▼              ▼
+Challenge 2   Challenge 3    Challenge 3    Challenge 4
+(Alerts)      (APM/Traces)   (Workflows)   (Agent Builder)
+```
+
+| Phase | Elastic Features | Purpose |
+|-------|------------------|---------|
+| **Detect** | SLOs, Alerts, ML Anomaly | Proactive detection before customers complain |
+| **Investigate** | APM Correlations, Tracing, Log Correlation | Root cause analysis with correlated signals |
+| **Remediate** | Workflows, Webhook Connector | Automated rollback to minimize MTTR |
+| **Learn** | Agent Builder, Cases | Post-incident analysis and prevention |
+
+Agent Builder is the **finale** (Challenge 4) where participants use conversational AI to synthesize incident data, calculate business impact, and document lessons learned.
+
 ## Repository Structure
 
 ```
-from-commit-to-culprit/
+elastic-trace-the-culprit/
 ├── claude.md                          # This file - development instructions
 ├── README.md                          # Workshop overview and quick start
 ├── CONTRIBUTING.md                    # Development guidelines
@@ -48,9 +69,10 @@ from-commit-to-culprit/
 │   ├── docker-compose.yml             # Main compose file
 │   ├── docker-compose.registry.yml    # Local registry setup
 │   ├── .env.example                   # Example environment file
-│   ├── .env.local                     # Local development config
+│   ├── .env.local                     # Local development config (start-local)
 │   ├── .env.instruqt                  # Instruqt environment config
-│   └── otel-collector-config.yaml     # EDOT Collector configuration
+│   ├── .env.serverless                # Elastic Cloud Serverless config
+│   └── otel-collector-config.yaml     # OpenTelemetry Collector configuration
 │
 ├── scripts/
 │   ├── deploy.sh                      # Deployment simulation script
@@ -117,13 +139,15 @@ from-commit-to-culprit/
 ## Key Technical Decisions
 
 ### Sample Application Stack
-- **Order Service:** Java 21, Spring Boot 3.x, EDOT Java auto-instrumentation
-- **Inventory Service:** Python 3.11, FastAPI, EDOT Python auto-instrumentation
-- **Payment Service:** Python 3.11, FastAPI, EDOT Python auto-instrumentation
+- **Order Service:** Java 21, Spring Boot 3.x, EDOT Java agent (auto-instrumentation)
+- **Inventory Service:** Python 3.11, FastAPI, OpenTelemetry Python distro (auto-instrumentation)
+- **Payment Service:** Python 3.11, FastAPI, OpenTelemetry Python distro (auto-instrumentation)
 - **All services are stateless** with in-memory data structures
 
 ### Telemetry
-- Use Elastic Distribution of OpenTelemetry (EDOT)
+- **Order Service:** Elastic Distribution of OpenTelemetry (EDOT) Java agent
+- **Python Services:** Standard OpenTelemetry Python distro with OTLP exporter
+- **Collector:** OpenTelemetry Collector Contrib (sends to Elastic via OTLP)
 - All services emit traces, logs, and metrics
 - Log correlation via trace ID injection
 - Custom spans with attribution metadata (author, commit SHA, PR number)
@@ -134,13 +158,14 @@ from-commit-to-culprit/
 - deploy.sh swaps image versions via docker-compose
 
 ### Elastic Configuration
-- Elastic Cloud Serverless (pre-provisioned per participant)
+- Supports three deployment targets: Instruqt, start-local, and Elastic Cloud Serverless
 - SLOs with 1-hour rolling windows
 - SLO burn rate alert triggers auto-rollback workflow
 - Agent Builder with 7 custom tools
 
 ### Environment Detection
-- .env file with ENVIRONMENT variable (local or instruqt)
+- `ENVIRONMENT` variable: `instruqt`, `local`, or `serverless`
+- Scripts auto-detect environment and configure endpoints accordingly
 - Startup banner shows environment, Elastic connection status, version
 
 ## Development Guidelines
@@ -237,16 +262,44 @@ All Elastic assets are provisioned via Kibana API calls in `setup-elastic.sh`:
 | 3. Investigate and Remediate | 25 min | Trace investigation, see rollback |
 | 4. Learn and Prevent | 15 min | Agent Builder, create case, wrap-up |
 
-## Environment Variables
+## Multi-Environment Support
+
+The workshop supports three deployment environments. All scripts and configurations use environment variables for portability.
+
+### Environment Comparison
+
+| Aspect | Instruqt | start-local | Cloud Serverless |
+|--------|----------|-------------|------------------|
+| Elasticsearch | `http://kubernetes-vm:30920` | `http://localhost:9200` | `https://*.elastic.cloud` |
+| Kibana | `http://kubernetes-vm:30002` | `http://localhost:5601` | `https://*.elastic.cloud` |
+| APM/OTLP | `http://kubernetes-vm:8200` | `http://localhost:8200` | `https://*.apm.elastic.cloud` |
+| TLS | No (HTTP) | No (HTTP) | Yes (HTTPS) |
+| Auth | Basic/API Key (pre-set) | Basic (`elastic`/`changeme`) | API Key |
+| Workflows | Yes (via ECK) | No | Yes |
+| Agent Builder | Yes (via ECK) | No | Yes |
+
+### Environment Configuration Files
+
+- `.env.instruqt` - Sources from pre-set Instruqt environment variables
+- `.env.local` - Localhost endpoints for start-local development
+- `.env.serverless` - Elastic Cloud Serverless endpoints (user configures)
+
+### Common Environment Variables
 
 ```bash
 # Environment detection
-ENVIRONMENT=local|instruqt
+ENVIRONMENT=instruqt|local|serverless
 
-# Elastic connection
-ELASTIC_ENDPOINT=https://your-endpoint.elastic.cloud
-ELASTIC_API_KEY=your-api-key
-KIBANA_URL=https://your-kibana.elastic.cloud
+# Elastic connection (values vary by environment)
+ELASTICSEARCH_URL=<endpoint>
+KIBANA_URL=<endpoint>
+ELASTIC_APM_SERVER_ENDPOINT=<endpoint>
+
+# Authentication (one of these depending on environment)
+ELASTICSEARCH_USER=elastic
+ELASTICSEARCH_PASSWORD=<password>
+ELASTICSEARCH_APIKEY=<base64-encoded-api-key>
+ELASTIC_APM_SERVER_SECRET=<apm-secret-token>
 
 # Container registry
 REGISTRY=localhost:5000
@@ -259,6 +312,78 @@ PAYMENT_SERVICE_VERSION=v1.0
 # Business constants
 AVERAGE_ORDER_VALUE=47.50
 ```
+
+## Instruqt Environment Details
+
+The Instruqt lab uses a two-VM architecture with Elastic running on Kubernetes via ECK.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Instruqt Lab                            │
+├─────────────────────────────┬───────────────────────────────────┤
+│         host-1              │         kubernetes-vm             │
+│   (Workshop Services)       │      (Elastic Stack - ECK)        │
+├─────────────────────────────┼───────────────────────────────────┤
+│ - Docker runtime            │ - k3s cluster                     │
+│ - Workshop repo             │ - ECK operator                    │
+│ - OTEL Collector            │ - Elasticsearch 9.x (NodePort)    │
+│ - order-service             │ - Kibana 9.x (NodePort + Tab)     │
+│ - inventory-service         │ - APM Server (LoadBalancer)       │
+│ - payment-service           │ - Fleet Server                    │
+│ - rollback-webhook          │                                   │
+└─────────────────────────────┴───────────────────────────────────┘
+         │                              │
+         │     http://kubernetes-vm     │
+         └──────────────────────────────┘
+```
+
+### Pre-configured Environment Variables (host-1)
+
+Instruqt automatically sets these variables on host-1:
+
+| Variable | Example Value | Purpose |
+|----------|---------------|---------|
+| `ELASTICSEARCH_URL` | `http://kubernetes-vm:30920` | Elasticsearch endpoint |
+| `KIBANA_URL` | `http://kubernetes-vm:30002` | Kibana endpoint |
+| `ELASTIC_APM_SERVER_ENDPOINT` | `http://kubernetes-vm:8200` | APM/OTLP endpoint |
+| `ELASTICSEARCH_USER` | `elastic` | Auth username |
+| `ELASTICSEARCH_PASSWORD` | `<generated>` | Auth password |
+| `ELASTICSEARCH_APIKEY` | `<base64>` | API key for programmatic access |
+| `ELASTIC_APM_SERVER_SECRET` | `<generated>` | APM secret token |
+
+### Kubernetes Services (kubernetes-vm)
+
+| Service | Type | Port | Access from host-1 |
+|---------|------|------|-------------------|
+| Elasticsearch | NodePort | 30920 | `http://kubernetes-vm:30920` |
+| Kibana | NodePort | 30002 | `http://kubernetes-vm:30002` |
+| APM Server | LoadBalancer | 8200 | `http://kubernetes-vm:8200` |
+| Fleet Server | NodePort | 30822 | `http://kubernetes-vm:30822` |
+
+### Instruqt Tabs
+
+- **Terminal (host-1)**: Primary workspace for running workshop commands
+- **Kibana**: Embedded tab exposing Kibana UI to participants
+- **Terminal (kubernetes-vm)**: Optional, for kubectl access if needed
+
+### OTEL Collector Configuration (Instruqt)
+
+```yaml
+exporters:
+  otlp:
+    endpoint: "kubernetes-vm:8200"
+    tls:
+      insecure: true
+    headers:
+      Authorization: "Bearer ${ELASTIC_APM_SERVER_SECRET}"
+```
+
+### Working Directory
+
+Workshop files should be placed in `/workspace/workshop/` on host-1.
+
 ## Git Commit Guidelines
 
 - Never mention Claude, AI, or any AI assistant in commit messages
@@ -323,6 +448,10 @@ Enhancements for future iterations:
 - E2E scenario tests
 - demo-mode.sh fast-forward script
 
+## Ignored Directories
+
+- **deleteme/** - Temporary scratch folder. Ignore all contents and do not read, modify, or reference files in this directory.
+
 ## Important Reminders
 
 1. **Never use emdashes.** Use complete sentences instead.
@@ -334,13 +463,45 @@ Enhancements for future iterations:
 
 ## Quick Start for Development
 
+### Option 1: Instruqt Environment
+
+Workshop services run on host-1, Elastic stack is pre-provisioned on kubernetes-vm.
+
+```bash
+# On host-1 - environment variables are pre-set
+cd /workspace/workshop
+
+# Clone or copy workshop files
+git clone https://github.com/your-org/elastic-trace-the-culprit.git .
+
+# Use Instruqt environment config
+cp infra/.env.instruqt infra/.env
+
+# Build and start services
+./scripts/build-images.sh
+docker-compose -f infra/docker-compose.yml up -d
+
+# Provision Elastic assets
+./scripts/setup-elastic.sh
+
+# Generate baseline traffic
+./scripts/load-generator.sh &
+
+# Deploy bad code (to test the incident)
+./scripts/deploy.sh order-service v1.1-bad
+```
+
+### Option 2: Elastic Cloud Serverless
+
+Full workshop functionality including Workflows and Agent Builder.
+
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/from-commit-to-culprit.git
-cd from-commit-to-culprit
+git clone https://github.com/your-org/elastic-trace-the-culprit.git
+cd elastic-trace-the-culprit
 
-# Copy environment file and configure
-cp infra/.env.example infra/.env
+# Copy and configure serverless environment
+cp infra/.env.serverless infra/.env
 # Edit .env with your Elastic Cloud Serverless endpoint and API key
 
 # Start ngrok tunnel for webhook connectivity (separate terminal)
@@ -359,16 +520,39 @@ docker-compose -f infra/docker-compose.yml up -d
 
 # Deploy bad code (to test the incident)
 ./scripts/deploy.sh order-service v1.1-bad
-
-# Watch the magic happen in Kibana!
 ```
 
-> **Note:** Elastic Cloud Serverless is required for Workflows (automated rollback) and Agent Builder. The start-local option can be used for basic instrumentation testing but does not support full workshop functionality.
+### Option 3: start-local (Development Only)
+
+Basic instrumentation testing without Workflows or Agent Builder.
+
+```bash
+# Clone the repository
+git clone https://github.com/your-org/elastic-trace-the-culprit.git
+cd elastic-trace-the-culprit
+
+# Use local environment config
+cp infra/.env.local infra/.env
+
+# Start local Elastic stack
+docker-compose -f infra/docker-compose.yml -f infra/docker-compose.local.yml up -d
+
+# Build and start services
+./scripts/build-images.sh
+docker-compose -f infra/docker-compose.yml up -d
+
+# Generate baseline traffic
+./scripts/load-generator.sh &
+```
+
+> **Note:** Workflows (automated rollback) and Agent Builder require Instruqt or Elastic Cloud Serverless. The start-local option is for basic instrumentation testing only.
 
 ## References
 
 - [Elastic Observability Docs](https://www.elastic.co/docs/solutions/observability)
-- [EDOT Documentation](https://www.elastic.co/docs/solutions/observability/apm/opentelemetry)
+- [EDOT Java Agent](https://www.elastic.co/docs/solutions/observability/apm/opentelemetry/java)
+- [OpenTelemetry Python](https://opentelemetry.io/docs/languages/python/)
+- [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)
 - [Agent Builder Docs](https://www.elastic.co/docs/solutions/search/elastic-agent-builder)
 - [SLO Documentation](https://www.elastic.co/docs/solutions/observability/incident-management/service-level-objectives-slos)
 - [Workflows (Keep)](https://www.elastic.co/docs/solutions/observability/incident-management/alerting)

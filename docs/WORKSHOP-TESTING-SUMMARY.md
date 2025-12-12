@@ -42,7 +42,7 @@ Comprehensive test automation has been created for the "From Commit to Culprit: 
 
 1. **Run the automated test:**
    ```bash
-   cd /path/to/from-commit-to-culprit
+   cd /path/to/elastic-trace-the-culprit
    ./scripts/workshop-test.sh --manual-rollback
    ```
 

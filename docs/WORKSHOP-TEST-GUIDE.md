@@ -33,13 +33,13 @@ Before running the test:
 
 1. **Start all services:**
    ```bash
-   cd /path/to/from-commit-to-culprit/infra
+   cd /path/to/elastic-trace-the-culprit/infra
    docker-compose up -d
    ```
 
 2. **Verify .env file is configured:**
    ```bash
-   cat /path/to/from-commit-to-culprit/infra/.env
+   cat /path/to/elastic-trace-the-culprit/infra/.env
    ```
 
    Ensure these variables are set:
@@ -60,7 +60,7 @@ Before running the test:
 This mode waits for the Elastic Workflow to trigger an automated rollback:
 
 ```bash
-cd /path/to/from-commit-to-culprit
+cd /path/to/elastic-trace-the-culprit
 ./scripts/workshop-test.sh
 ```
 

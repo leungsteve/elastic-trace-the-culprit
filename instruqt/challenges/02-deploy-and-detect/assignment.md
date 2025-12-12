@@ -66,7 +66,7 @@ You will see alerts appear here when thresholds are breached.
 Now, execute the deployment:
 
 ```bash
-cd /root/from-commit-to-culprit
+cd elastic-trace-the-culprit/
 ./scripts/deploy.sh order-service v1.1-bad
 ```
 

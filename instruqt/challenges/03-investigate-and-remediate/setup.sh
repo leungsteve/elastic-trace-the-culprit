@@ -8,7 +8,7 @@ echo "==========================================="
 echo "Setting up Challenge 3: Investigate and Remediate"
 echo "==========================================="
 
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 
 # Ensure v1.1-bad is still deployed (it should be from Challenge 2)
 source infra/.env

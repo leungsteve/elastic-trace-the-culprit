@@ -7,7 +7,7 @@ echo "==========================================="
 echo "Auto-solving Challenge 2: Deploy and Detect"
 echo "==========================================="
 
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 
 # Deploy the bad version
 echo "Deploying order-service v1.1-bad..."

@@ -8,7 +8,7 @@ echo "==========================================="
 echo "Setting up Challenge 2: Deploy and Detect"
 echo "==========================================="
 
-cd /root/from-commit-to-culprit
+cd /root/elastic-trace-the-culprit
 
 # Ensure services are still running from Challenge 1
 if ! docker-compose -f infra/docker-compose.yml ps | grep -q "Up"; then
