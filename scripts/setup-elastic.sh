@@ -825,7 +825,7 @@ delete_tool() {
     fi
 }
 
-create_tool() {
+create_tool_direct() {
     local tool_id=$1
     local description=$2
     local query=$3
@@ -838,25 +838,15 @@ create_tool() {
         delete_tool "$existing"
     fi
 
-    # Build payload
+    # Build JSON payload directly (avoids jq multi-line issues)
     local payload
-    payload=$(jq -n \
-        --arg id "$tool_id" \
-        --arg desc "$description" \
-        --arg query "$query" \
-        --argjson params "${params:-{}}" \
-        '{
-            id: $id,
-            type: "esql",
-            description: $desc,
-            tags: ["workshop", "novamart", "custom"],
-            configuration: {
-                params: $params,
-                query: $query
-            }
-        }')
+    if [[ "$params" == "{}" || -z "$params" ]]; then
+        payload="{\"id\":\"${tool_id}\",\"type\":\"esql\",\"description\":\"${description}\",\"tags\":[\"workshop\",\"novamart\"],\"configuration\":{\"params\":{},\"query\":\"${query}\"}}"
+    else
+        payload="{\"id\":\"${tool_id}\",\"type\":\"esql\",\"description\":\"${description}\",\"tags\":[\"workshop\",\"novamart\"],\"configuration\":{\"params\":${params},\"query\":\"${query}\"}}"
+    fi
 
-    local response http_code
+    local response http_code body
     response=$(curl -s -w "\n%{http_code}" -X POST "${KIBANA_URL}/api/agent_builder/tools" \
         -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
         -H "Content-Type: application/json" \
@@ -864,12 +854,16 @@ create_tool() {
         -d "$payload" 2>/dev/null || echo -e "\n000")
 
     http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
 
     if [[ "$http_code" == "200" || "$http_code" == "201" ]]; then
         print_success "Created tool: ${tool_id}"
         return 0
     else
         print_error "Failed to create tool: ${tool_id} (HTTP ${http_code})"
+        if [[ "${DEBUG:-false}" == "true" ]]; then
+            echo "Response: $body"
+        fi
         return 1
     fi
 }
@@ -881,105 +875,52 @@ create_all_tools() {
     local success_count=0
 
     # Tool 1: Service Health Snapshot
-    if create_tool "service-health-snapshot" \
-        "Provides current health status of a service including latency, throughput, error rate. Use this as your first diagnostic step." \
-        'FROM traces-apm*
-| WHERE service.name == ?service_name
-| STATS
-    avg_latency_ms = AVG(transaction.duration.us) / 1000,
-    p95_latency_ms = PERCENTILE(transaction.duration.us, 95) / 1000,
-    error_rate_pct = AVG(CASE(event.outcome == "failure", 100, 0)),
-    total_requests = COUNT(*)
-| LIMIT 1' \
-        '{"service_name":{"type":"keyword","description":"Service name (e.g., order-service)"}}'; then
-        ((success_count++))
-    fi
+    create_tool_direct "service-health-snapshot" \
+        "Provides current health status of a service including latency, throughput, error rate." \
+        "FROM traces-apm* | WHERE service.name == ?service_name | STATS avg_latency_ms = AVG(transaction.duration.us) / 1000, p95_latency_ms = PERCENTILE(transaction.duration.us, 95) / 1000, error_rate_pct = AVG(CASE(event.outcome == \"failure\", 100, 0)), total_requests = COUNT(*) | LIMIT 1" \
+        '{"service_name":{"type":"keyword","description":"Service name (e.g., order-service)"}}' && ((success_count++))
 
     # Tool 2: APM Latency Comparison
-    if create_tool "apm-latency-comparison" \
+    create_tool_direct "apm-latency-comparison" \
         "Compare service latency before and after a timestamp to identify performance degradation." \
-        'FROM traces-apm*
-| WHERE service.name == ?service_name
-| EVAL time_period = CASE(@timestamp < TO_DATETIME(?comparison_time), "before", "after")
-| STATS avg_latency_ms = AVG(transaction.duration.us) / 1000, p95_latency_ms = PERCENTILE(transaction.duration.us, 95) / 1000, count = COUNT(*) BY time_period
-| LIMIT 10' \
-        '{"service_name":{"type":"keyword","description":"Service name"},"comparison_time":{"type":"keyword","description":"ISO timestamp (e.g., 2025-01-10T14:30:00Z)"}}'; then
-        ((success_count++))
-    fi
+        "FROM traces-apm* | WHERE service.name == ?service_name | EVAL time_period = CASE(@timestamp < TO_DATETIME(?comparison_time), \"before\", \"after\") | STATS avg_latency_ms = AVG(transaction.duration.us) / 1000, count = COUNT(*) BY time_period | LIMIT 10" \
+        '{"service_name":{"type":"keyword","description":"Service name"},"comparison_time":{"type":"keyword","description":"ISO timestamp"}}' && ((success_count++))
 
     # Tool 3: Deployment Timeline
-    if create_tool "deployment-timeline" \
+    create_tool_direct "deployment-timeline" \
         "Retrieves deployment events showing version, author, commit SHA, and timestamp." \
-        'FROM deployment-metadata
-| SORT deployment.timestamp DESC
-| KEEP deployment.version, deployment.service, deployment.timestamp, attribution.author, attribution.commit_sha, attribution.pr_number, changes.summary
-| LIMIT 10' \
-        '{}'; then
-        ((success_count++))
-    fi
+        "FROM deployment-metadata | SORT deployment.timestamp DESC | KEEP deployment.version, deployment.service, deployment.timestamp, attribution.author, attribution.commit_sha, changes.summary | LIMIT 10" \
+        '{}' && ((success_count++))
 
     # Tool 4: Deployment Code Changes
-    if create_tool "deployment-code-changes" \
+    create_tool_direct "deployment-code-changes" \
         "Retrieves code diff details including before/after code, files modified, commit message." \
-        'FROM deployment-metadata
-| SORT deployment.timestamp DESC
-| KEEP deployment.version, deployment.service, attribution.commit_sha, attribution.commit_message, code_diff.file, code_diff.method, code_diff.before, code_diff.after, code_diff.issue, changes.summary
-| LIMIT 5' \
-        '{}'; then
-        ((success_count++))
-    fi
+        "FROM deployment-metadata | SORT deployment.timestamp DESC | KEEP deployment.version, attribution.commit_sha, attribution.commit_message, code_diff.file, code_diff.before, code_diff.after, code_diff.issue | LIMIT 5" \
+        '{}' && ((success_count++))
 
     # Tool 5: Error Pattern Analysis
-    if create_tool "error-pattern-analysis" \
+    create_tool_direct "error-pattern-analysis" \
         "Analyzes error patterns for a service, grouping by error type to identify common failures." \
-        'FROM traces-apm*
-| WHERE service.name == ?service_name AND event.outcome == "failure"
-| STATS error_count = COUNT(*), first_seen = MIN(@timestamp), last_seen = MAX(@timestamp) BY transaction.name
-| SORT error_count DESC
-| LIMIT 20' \
-        '{"service_name":{"type":"keyword","description":"Service name to analyze"}}'; then
-        ((success_count++))
-    fi
+        "FROM traces-apm* | WHERE service.name == ?service_name AND event.outcome == \"failure\" | STATS error_count = COUNT(*), first_seen = MIN(@timestamp), last_seen = MAX(@timestamp) BY transaction.name | SORT error_count DESC | LIMIT 20" \
+        '{"service_name":{"type":"keyword","description":"Service name to analyze"}}' && ((success_count++))
 
     # Tool 6: Business Impact Calculator
-    if create_tool "business-impact-calculator" \
-        "Calculate revenue impact using NovaMart average order value (\$47.50)." \
-        'FROM traces-apm*
-| WHERE service.name == ?service_name AND @timestamp >= TO_DATETIME(?start_time) AND @timestamp <= TO_DATETIME(?end_time) AND event.outcome == "failure"
-| STATS failed_transactions = COUNT(*)
-| EVAL estimated_revenue_loss_usd = failed_transactions * 47.50
-| KEEP failed_transactions, estimated_revenue_loss_usd
-| LIMIT 1' \
-        '{"service_name":{"type":"keyword","description":"Service name"},"start_time":{"type":"keyword","description":"Start time (ISO)"},"end_time":{"type":"keyword","description":"End time (ISO)"}}'; then
-        ((success_count++))
-    fi
+    create_tool_direct "business-impact-calculator" \
+        "Calculate revenue impact using NovaMart average order value (47.50 USD)." \
+        "FROM traces-apm* | WHERE service.name == ?service_name AND event.outcome == \"failure\" | STATS failed_transactions = COUNT(*) | EVAL estimated_revenue_loss_usd = failed_transactions * 47.50 | KEEP failed_transactions, estimated_revenue_loss_usd | LIMIT 1" \
+        '{"service_name":{"type":"keyword","description":"Service name"}}' && ((success_count++))
 
     # Tool 7: Incident Timeline
-    if create_tool "incident-timeline" \
+    create_tool_direct "incident-timeline" \
         "Build incident timeline with 1-minute buckets showing latency and error trends." \
-        'FROM traces-apm*
-| WHERE service.name == ?service_name AND @timestamp >= TO_DATETIME(?start_time) AND @timestamp <= TO_DATETIME(?end_time)
-| EVAL time_bucket = DATE_TRUNC(1 minute, @timestamp)
-| STATS avg_latency_ms = AVG(transaction.duration.us) / 1000, p95_latency_ms = PERCENTILE(transaction.duration.us, 95) / 1000, error_count = SUM(CASE(event.outcome == "failure", 1, 0)), total_count = COUNT(*) BY time_bucket
-| EVAL error_rate_pct = (error_count * 100.0) / total_count
-| SORT time_bucket ASC
-| LIMIT 100' \
-        '{"service_name":{"type":"keyword","description":"Service name"},"start_time":{"type":"keyword","description":"Start (ISO)"},"end_time":{"type":"keyword","description":"End (ISO)"}}'; then
-        ((success_count++))
-    fi
+        "FROM traces-apm* | WHERE service.name == ?service_name | EVAL time_bucket = DATE_TRUNC(1 minute, @timestamp) | STATS avg_latency_ms = AVG(transaction.duration.us) / 1000, error_count = SUM(CASE(event.outcome == \"failure\", 1, 0)), total_count = COUNT(*) BY time_bucket | SORT time_bucket ASC | LIMIT 100" \
+        '{"service_name":{"type":"keyword","description":"Service name"}}' && ((success_count++))
 
     # Tool 8: SLO Status Budget
-    if create_tool "slo-status-budget" \
+    create_tool_direct "slo-status-budget" \
         "Calculate SLO compliance and error budget consumption for a service." \
-        'FROM traces-apm*
-| WHERE service.name == ?service_name AND @timestamp >= NOW() - 1 hour
-| STATS total_requests = COUNT(*), successful = SUM(CASE(event.outcome == "success", 1, 0)), failed = SUM(CASE(event.outcome == "failure", 1, 0))
-| EVAL success_rate_pct = (successful * 100.0) / total_requests, slo_target_pct = 99.9, error_budget_remaining_pct = success_rate_pct - slo_target_pct, is_slo_violated = CASE(success_rate_pct < slo_target_pct, "YES", "NO")
-| KEEP total_requests, success_rate_pct, slo_target_pct, error_budget_remaining_pct, is_slo_violated
-| LIMIT 1' \
-        '{"service_name":{"type":"keyword","description":"Service name"}}'; then
-        ((success_count++))
-    fi
+        "FROM traces-apm* | WHERE service.name == ?service_name | STATS total_requests = COUNT(*), successful = SUM(CASE(event.outcome == \"success\", 1, 0)), failed = SUM(CASE(event.outcome == \"failure\", 1, 0)) | EVAL success_rate_pct = (successful * 100.0) / total_requests, is_slo_violated = CASE(success_rate_pct < 99.9, \"YES\", \"NO\") | LIMIT 1" \
+        '{"service_name":{"type":"keyword","description":"Service name"}}' && ((success_count++))
 
     echo ""
     if [[ $success_count -eq 8 ]]; then
