@@ -7,8 +7,13 @@
 # Generates continuous traffic to the Order Service to simulate real usage.
 # Sends random orders at 2-5 requests per second.
 #
-# Usage: ./load-generator.sh [--duration <seconds>] [--rate <requests-per-second>]
+# Usage: ./load-generator.sh [--duration <seconds>] [--rate <requests-per-second>] [--log]
 # Example: ./load-generator.sh --duration 300 --rate 3
+# Example: ./load-generator.sh --log  # Writes to logs/load-generator.log
+#
+# For Instruqt setup scripts, run in background with:
+#   nohup ./scripts/load-generator.sh --log &
+# Participants can then: tail -f logs/load-generator.log
 
 # Note: Not using set -e as arithmetic operations can return non-zero
 
@@ -16,9 +21,15 @@
 # Configuration
 # =============================================================================
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
+LOG_DIR="${REPO_DIR}/logs"
+LOG_FILE="${LOG_DIR}/load-generator.log"
+
 ORDER_SERVICE_URL="${ORDER_SERVICE_URL:-http://localhost:8088}"
 DEFAULT_DURATION=0  # 0 = run forever
 DEFAULT_RATE=3      # requests per second
+LOG_TO_FILE=false   # Whether to log to file
 
 # Product catalog for random orders
 PRODUCTS=("WIDGET-001" "WIDGET-002" "GADGET-042")
@@ -121,10 +132,10 @@ send_order() {
         ((SUCCESSFUL_REQUESTS++))
         local order_id
         order_id=$(echo "$body" | grep -o '"orderId":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
-        echo -e "${GREEN}[OK]${NC} Order ${order_id} - HTTP ${http_code} - ${time_color}${time_ms}ms${NC}"
+        log_output "${GREEN}[OK]${NC} Order ${order_id} - HTTP ${http_code} - ${time_color}${time_ms}ms${NC}"
     else
         ((FAILED_REQUESTS++))
-        echo -e "${RED}[FAIL]${NC} HTTP ${http_code} - ${time_color}${time_ms}ms${NC}"
+        log_output "${RED}[FAIL]${NC} HTTP ${http_code} - ${time_color}${time_ms}ms${NC}"
     fi
 }
 
@@ -159,13 +170,37 @@ usage() {
     echo "  --duration <seconds>   Run for specified duration (default: run forever)"
     echo "  --rate <rps>           Target requests per second (default: ${DEFAULT_RATE})"
     echo "  --url <url>            Order service URL (default: ${ORDER_SERVICE_URL})"
+    echo "  --log                  Write output to logs/load-generator.log"
     echo "  -h, --help             Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0                          # Run forever at 3 rps"
     echo "  $0 --duration 60            # Run for 60 seconds"
     echo "  $0 --rate 5 --duration 120  # 5 rps for 2 minutes"
+    echo "  $0 --log                    # Run with output to log file"
+    echo ""
+    echo "For Instruqt (background with logging):"
+    echo "  nohup $0 --log &"
+    echo "  tail -f logs/load-generator.log"
     exit 0
+}
+
+# Output function that handles both file and stdout logging
+log_output() {
+    local message="$1"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    if [[ "$LOG_TO_FILE" == "true" ]]; then
+        # Strip ANSI color codes for log file
+        local clean_message
+        clean_message=$(echo -e "$message" | sed 's/\x1b\[[0-9;]*m//g')
+        echo "[${timestamp}] ${clean_message}" >> "$LOG_FILE"
+        # Also echo to stdout (without timestamp, with colors)
+        echo -e "$message"
+    else
+        echo -e "$message"
+    fi
 }
 
 # =============================================================================
@@ -190,6 +225,10 @@ while [[ $# -gt 0 ]]; do
             ORDER_SERVICE_URL=$2
             shift 2
             ;;
+        --log)
+            LOG_TO_FILE=true
+            shift
+            ;;
         -h|--help)
             usage
             ;;
@@ -199,6 +238,19 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Create logs directory if logging to file
+if [[ "$LOG_TO_FILE" == "true" ]]; then
+    mkdir -p "$LOG_DIR"
+    echo "Logging to: $LOG_FILE"
+    echo ""
+    # Write startup header to log
+    echo "=========================================" >> "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Load Generator Started" >> "$LOG_FILE"
+    echo "  Target: ${ORDER_SERVICE_URL}" >> "$LOG_FILE"
+    echo "  Rate: ~${RATE} requests/second" >> "$LOG_FILE"
+    echo "=========================================" >> "$LOG_FILE"
+fi
 
 # Set up signal handler for clean shutdown
 trap cleanup SIGINT SIGTERM

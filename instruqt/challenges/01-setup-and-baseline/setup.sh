@@ -54,6 +54,11 @@ echo "Generating baseline traffic for ML training..."
 echo "Waiting for telemetry data to populate..."
 sleep 20
 
+# Start load generator in background with logging
+echo "Starting load generator (background)..."
+nohup ./scripts/load-generator.sh --log > /dev/null 2>&1 &
+sleep 2
+
 echo "==========================================="
 echo "Challenge 1 setup complete!"
 echo "==========================================="
@@ -63,6 +68,9 @@ echo "  - order-service:     http://localhost:8088"
 echo "  - inventory-service: http://localhost:8081"
 echo "  - payment-service:   http://localhost:8082"
 echo "  - rollback-webhook:  http://localhost:9000"
+echo ""
+echo "Load generator: Running in background"
+echo "  View traffic: tail -f logs/load-generator.log"
 echo ""
 echo "Kibana: ${KIBANA_URL}"
 echo ""

@@ -21,7 +21,7 @@ fi
 # Ensure load generator is running to trigger alerts
 if ! pgrep -f "load-generator.sh" > /dev/null; then
     echo "Restarting load generator..."
-    ./scripts/load-generator.sh &
+    nohup ./scripts/load-generator.sh --log > /dev/null 2>&1 &
     sleep 5
 fi
 

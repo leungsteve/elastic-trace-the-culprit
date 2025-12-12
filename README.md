@@ -1,22 +1,24 @@
-# From Commit to Culprit: An Elastic Observability Workshop
+# From Commit to Culprit: An Observability Mystery
 
-**Teach SREs and DevOps Engineers to investigate production incidents using Elastic Observability**
+> **Trace a production incident from alert to the exact line of code—in minutes, not hours.**
 
 [![Elastic](https://img.shields.io/badge/Elastic-00BFB3?style=for-the-badge&logo=elastic&logoColor=white)](https://www.elastic.co)
-[![Instruqt](https://img.shields.io/badge/Instruqt-Workshop-blue?style=for-the-badge)](https://instruqt.com)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-EDOT-blue?style=for-the-badge)](https://www.elastic.co/docs/solutions/observability/apm/opentelemetry)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green?style=for-the-badge)](LICENSE)
 
 ---
 
 ## Overview
 
-This hands-on workshop teaches DevOps engineers and SREs how to use Elastic Observability to investigate production incidents, trace problems to their source code, and implement automated remediation.
+A hands-on workshop where you investigate a real production incident using Elastic Observability. Deploy bad code, watch alerts fire, trace the problem to its source, and trigger automated remediation—all while learning the techniques SREs use to minimize downtime.
 
-**The Scenario:** It's Friday afternoon at NovaMart, a mid-size e-commerce company. The Order Service team just deployed version 1.1 with a "minor performance optimization." Within minutes, customers complain about slow checkouts. Your mission as the on-call SRE is to use Elastic Observability to trace the problem from symptom to source, identify the guilty commit, and trigger an automated rollback before the weekend is ruined.
+**The Scenario:** It's Friday afternoon at NovaMart, a mid-size e-commerce company. A developer ships what they think is a performance optimization. Five minutes later, latency spikes 10x. Customers can't complete orders. Your mission as the on-call SRE: find the root cause, identify who wrote it, and fix it before the weekend rush.
 
-**Duration:** 2 hours
-**Format:** Hands-on Instruqt workshop with guided narrative
-**Experience Level:** Basic (familiarity with Kibana helpful)
+| | |
+|---|---|
+| **Duration** | 60-90 minutes |
+| **Format** | Hands-on workshop with guided challenges |
+| **Experience** | No prior Elastic experience required |
 
 ---
 
@@ -31,6 +33,28 @@ By the end of this workshop, you will be able to:
 5. **Automate incident remediation** using Elastic Workflows
 6. **Calculate business impact** of service degradation in real-time
 7. **Use Agent Builder** to investigate incidents conversationally with AI
+
+---
+
+## Incident Response Lifecycle
+
+This workshop teaches the **complete incident response lifecycle** that SREs use to handle production incidents:
+
+```
+  DETECT  ──►  INVESTIGATE  ──►  REMEDIATE  ──►  LEARN
+    │              │                │              │
+    ▼              ▼                ▼              ▼
+Challenge 2    Challenge 3     Challenge 3    Challenge 4
+```
+
+| Phase | What Happens | Elastic Features |
+|-------|--------------|------------------|
+| **Detect** | SLO burn rate alert fires within minutes of bad deployment | SLOs, Alerts, ML Anomaly Detection |
+| **Investigate** | Trace the problem from alert to root cause code | APM Correlations, Distributed Tracing, Log Correlation |
+| **Remediate** | Automated rollback restores service health | Elastic Workflows, Webhook Connector |
+| **Learn** | AI-powered analysis for post-incident review | Agent Builder, Cases |
+
+Traditional observability training covers features in isolation. This workshop connects them into a complete workflow where each phase builds on the previous one, culminating in Agent Builder for post-incident learning.
 
 ---
 
@@ -84,104 +108,103 @@ All services are stateless with in-memory data structures and instrumented using
 
 ---
 
-## Prerequisites
+## Getting Started
 
-To run this workshop locally, you need:
+This workshop is designed to run on **Instruqt**, where the environment is pre-configured automatically. You can also run it locally for development or self-paced learning.
 
-- **Docker** (version 24.x or later) and **Docker Compose** (version 2.x or later)
-- **Elastic Cloud Serverless account** (required for Workflows and Agent Builder features)
-  - Create a free trial at [cloud.elastic.co](https://cloud.elastic.co)
-  - Note: Local Elastic stack (`start-local`) has limited functionality
-- **curl and bash** for running scripts
-- **ngrok or similar tunnel service** (optional, for webhook connectivity in local development)
-  - Alternative: Use `auto-rollback-monitor.sh` script to simulate automated rollback without tunnel
+### Option 1: Instruqt Workshop (Recommended)
 
----
+The Instruqt environment provides a fully pre-configured setup with Elastic Stack already deployed.
 
-## Quick Start Guide
+**For Participants:**
+1. Access the workshop through the Instruqt link provided by your facilitator
+2. The environment includes all services, Elastic Stack, and credentials pre-configured
+3. Follow the challenge instructions in the Instruqt interface
 
-### 1. Clone the Repository
+**For Facilitators (setting up the track):**
+
+The setup script automatically generates `infra/.env` from Instruqt environment variables - no manual credential configuration required:
 
 ```bash
-git clone https://github.com/elastic/elastic-trace-the-culprit.git
+# Clone the repository
+git clone https://github.com/leungsteve/elastic-trace-the-culprit.git
 cd elastic-trace-the-culprit
+
+# Auto-generate infra/.env from Instruqt environment variables
+# (No manual editing needed - credentials are extracted automatically)
+./scripts/setup-instruqt-env.sh
+
+# Pull pre-built images and start services
+docker compose -f infra/docker-compose.yml pull
+docker compose -f infra/docker-compose.yml up -d
+
+# Provision Elastic assets (SLOs, alerts, Agent Builder)
+./scripts/setup-elastic.sh
+
+# Start traffic generation
+./scripts/load-generator.sh &
 ```
 
-### 2. Configure Environment with Elastic Credentials
+The `setup-instruqt-env.sh` script automatically configures everything:
+- Elasticsearch endpoint and API key (from `ELASTICSEARCH_URL`, `ELASTICSEARCH_APIKEY`)
+- Kibana URL (from `KIBANA_URL`)
+- APM server endpoint (from `ELASTIC_APM_SERVER_ENDPOINT`)
+- Webhook URL for automated rollback
+- Container registry (pre-built images on GitHub Container Registry)
+
+### Option 2: Local Development
+
+For running the workshop locally or contributing to development:
+
+**Prerequisites:**
+- Docker (v24+) and Docker Compose (v2+)
+- Elastic Cloud Serverless account - [Start a free trial](https://cloud.elastic.co)
+- bash and curl
+
+**Setup:**
 
 ```bash
-# Copy the example environment file
-cp infra/.env.example infra/.env
+# 1. Clone the repository
+git clone https://github.com/leungsteve/elastic-trace-the-culprit.git
+cd elastic-trace-the-culprit
 
-# Edit .env and add your Elastic Cloud Serverless credentials
-# Required variables:
-#   ELASTIC_ENDPOINT=https://your-project.es.us-east-1.aws.elastic.cloud:443
+# 2. Configure Elastic credentials
+cp infra/.env.example infra/.env
+# Edit infra/.env with your Elastic Cloud credentials:
+#   ELASTIC_ENDPOINT=https://your-project.es.us-central1.gcp.elastic.cloud:443
 #   ELASTIC_API_KEY=your-base64-encoded-api-key
-#   KIBANA_URL=https://your-project.kb.us-east-1.aws.elastic.cloud
+#   KIBANA_URL=https://your-project.kb.us-central1.gcp.elastic.cloud:443
+
+# 3. Pull pre-built images and start services
+docker compose -f infra/docker-compose.yml pull
+docker compose -f infra/docker-compose.yml up -d
+
+# 4. Provision Elastic assets (SLOs, alerts, Agent Builder)
+./scripts/setup-elastic.sh
+
+# 5. Verify everything is working
+./scripts/health-check.sh
+
+# 6. Start generating traffic
+./scripts/load-generator.sh &
 ```
 
 **Getting Elastic Credentials:**
-
 1. Log in to [Elastic Cloud](https://cloud.elastic.co)
-2. Create a new Serverless Observability project (or use an existing one)
-3. Navigate to **Management > API Keys** to create an API key
-4. Copy the endpoint URLs from your deployment overview
+2. Create a new **Serverless Observability** project
+3. Go to **Management > API Keys** and create a key with full access
+4. Copy the Elasticsearch endpoint and Kibana URL from your project overview
 
-### 3. Build Docker Images
+### Services
 
-```bash
-# Build all service images and push to local registry
-./scripts/build-images.sh
-```
+Once running, services are available at:
 
-This script will:
-- Start a local Docker registry on port 5000
-- Build images for all services (order, inventory, payment, rollback-webhook)
-- Build both v1.0 (good) and v1.1-bad (with latency bug) versions of Order Service
-- Push all images to the local registry
-
-### 4. Start Services
-
-```bash
-# Start all services using Docker Compose
-docker-compose -f infra/docker-compose.yml up -d
-
-# Verify services are running
-docker-compose -f infra/docker-compose.yml ps
-
-# Check service health
-./scripts/health-check.sh
-```
-
-Services will be available at:
-- Order Service: http://localhost:8088
-- Inventory Service: http://localhost:8081
-- Payment Service: http://localhost:8082
-- Rollback Webhook: http://localhost:9000
-
-### 5. Provision Elastic Assets
-
-```bash
-# Set up SLOs, alerts, workflows, Agent Builder tools, and dashboards
-./scripts/setup-elastic.sh
-```
-
-This script provisions:
-- SLOs for latency and availability (1-hour rolling windows)
-- Alert rules (threshold and SLO burn rate)
-- Webhook connector for automated rollback
-- Agent Builder tools (7 custom investigation tools)
-- Workshop overview dashboard
-
-### 6. Generate Traffic
-
-```bash
-# Start the load generator to create baseline traffic
-./scripts/load-generator.sh
-
-# The script will send random orders at 2-5 requests per second
-# Press Ctrl+C to stop when ready
-```
+| Service | URL | Description |
+|---------|-----|-------------|
+| Order Service | http://localhost:8088 | Main entry point (Java/Spring Boot) |
+| Inventory Service | http://localhost:8081 | Stock management (Python/FastAPI) |
+| Payment Service | http://localhost:8082 | Payment processing (Python/FastAPI) |
+| Rollback Webhook | http://localhost:9000 | Automated rollback handler |
 
 ---
 
@@ -293,7 +316,35 @@ Use conversational AI to analyze the incident:
 
 ## Workshop Challenges
 
-The Instruqt workshop consists of 4 hands-on challenges:
+The Instruqt workshop consists of 4 hands-on challenges. Each challenge has automated setup that runs before the participant begins.
+
+### Challenge Structure
+
+Each challenge includes:
+- **setup.sh:** Runs automatically before challenge starts (participants don't see this)
+- **assignment.md:** Step-by-step instructions participants follow
+- **check.sh:** Validates participant completed the challenge
+- **solve.sh:** Solution script for facilitator demonstrations
+
+### What's Automated vs What Participants Do
+
+| Challenge | Automated Setup (setup.sh) | Participant Actions |
+|-----------|---------------------------|---------------------|
+| **1. Setup and Baseline** | Clone repo, generate .env, start services, provision Elastic assets, start load generator | Explore Kibana, view APM services, check SLOs, tail load generator logs |
+| **2. Deploy and Detect** | Verify services running, ensure v1.0 deployed | Run `./scripts/deploy.sh order-service v1.1-bad`, watch alerts fire in Kibana |
+| **3. Investigate and Remediate** | Ensure v1.1-bad deployed, load generator running | Use APM Correlations, drill into traces, find root cause, observe auto-rollback |
+| **4. Learn and Prevent** | Rollback to v1.0 if needed | Use Agent Builder to analyze incident, create Case documentation |
+
+### Viewing Load Generator Traffic
+
+The load generator runs in the background and logs to `logs/load-generator.log`. Participants can watch traffic and response times:
+
+```bash
+# View live traffic with response times
+tail -f logs/load-generator.log
+```
+
+### Challenge Summary
 
 | Challenge | Duration | Focus |
 |-----------|----------|-------|
@@ -301,12 +352,6 @@ The Instruqt workshop consists of 4 hands-on challenges:
 | **2. Deploy and Detect** | 30 min | Deploy bad code, observe alerts fire, measure business impact |
 | **3. Investigate and Remediate** | 25 min | Trace investigation, log correlation, see automated rollback |
 | **4. Learn and Prevent** | 15 min | Agent Builder analysis, create incident Case, discuss best practices |
-
-Each challenge includes:
-- **assignment.md:** Step-by-step instructions with narrative context
-- **setup.sh:** Automated environment preparation
-- **check.sh:** Validation scripts to verify completion
-- **solve.sh:** Solution scripts for facilitator demonstrations
 
 ---
 
@@ -318,7 +363,7 @@ Each challenge includes:
 | **Distributed Tracing** | Follow requests across microservices with trace propagation and waterfall visualization |
 | **Log Correlation** | Filter logs by trace ID to see exactly what happened during a slow transaction |
 | **Custom Spans** | Add attribution metadata (author, commit SHA, PR number) to spans for rapid root cause identification |
-| **SLOs** | Service Level Objectives with 1-hour rolling windows and error budget tracking |
+| **SLOs** | Service Level Objectives with rolling windows (7d latency, 30d availability) and error budget tracking |
 | **SLO Burn Rate Alerts** | Detect when error budget depletes faster than expected |
 | **ML Anomaly Detection** | Automatic baseline learning and anomaly detection for latency patterns |
 | **APM Correlations** | Automatically identify what is different about slow requests compared to fast ones |
@@ -358,11 +403,12 @@ elastic-trace-the-culprit/
 │   └── otel-collector-config.yaml     # EDOT Collector configuration
 │
 ├── scripts/                           # Automation scripts
+│   ├── setup-instruqt-env.sh          # Auto-generate .env from Instruqt variables
+│   ├── setup-elastic.sh               # Kibana API provisioning (SLOs, alerts, Agent Builder)
 │   ├── build-images.sh                # Build all Docker images
 │   ├── deploy.sh                      # Deployment simulation script
 │   ├── rollback.sh                    # Manual rollback script
 │   ├── load-generator.sh              # Traffic generation (bash curl loop)
-│   ├── setup-elastic.sh               # Kibana API provisioning
 │   ├── health-check.sh                # Service verification
 │   ├── generate-baseline.sh           # ML pre-training data generation
 │   └── auto-rollback-monitor.sh       # Local Workflows simulation
@@ -507,7 +553,7 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ## Support and Resources
 
-- **Workshop Issues:** [Open an issue](https://github.com/elastic/elastic-trace-the-culprit/issues) in this repository
+- **Workshop Issues:** [Open an issue](https://github.com/leungsteve/elastic-trace-the-culprit/issues) in this repository
 - **Elastic Documentation:**
   - [Elastic Observability](https://www.elastic.co/docs/solutions/observability)
   - [EDOT Documentation](https://www.elastic.co/docs/solutions/observability/apm/opentelemetry)
@@ -515,7 +561,6 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
   - [SLOs](https://www.elastic.co/docs/solutions/observability/incident-management/service-level-objectives-slos)
   - [Workflows](https://www.elastic.co/docs/solutions/observability/incident-management/alerting)
 - **Community:** [Elastic Community Forums](https://discuss.elastic.co/)
-- **Instruqt Issues:** Contact your Elastic representative
 
 ---
 
