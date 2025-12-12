@@ -704,6 +704,363 @@ EOF
     print_info "  5. Configure SLO Burn Rate alert to use 'Run Workflow' action"
 }
 
+# =============================================================================
+# Agent Builder Functions
+# =============================================================================
+
+AGENT_ID="novamart-incident-investigation-assistant"
+
+find_agent() {
+    local agent_id=$1
+    local response
+    response=$(curl -s -X GET "${KIBANA_URL}/api/agent_builder/agents/${agent_id}" \
+        -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+        -H "kbn-xsrf: true" 2>/dev/null)
+
+    # Check if agent exists (not an error)
+    if echo "$response" | jq -e '.name' > /dev/null 2>&1; then
+        echo "$agent_id"
+    fi
+}
+
+delete_agent() {
+    local agent_id=$1
+    if [[ -n "$agent_id" ]]; then
+        print_info "Deleting existing agent: ${agent_id}"
+        curl -s -X DELETE "${KIBANA_URL}/api/agent_builder/agents/${agent_id}" \
+            -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+            -H "kbn-xsrf: true" > /dev/null 2>&1
+    fi
+}
+
+create_agent() {
+    print_info "Creating Agent Builder agent..."
+
+    # Check for existing agent and delete it
+    local existing
+    existing=$(find_agent "$AGENT_ID")
+    if [[ -n "$existing" ]]; then
+        delete_agent "$existing"
+    fi
+
+    # Load agent config
+    local agent_file="${ASSETS_DIR}/agent-builder/agent.json"
+    if [[ ! -f "$agent_file" ]]; then
+        print_error "Agent file not found: ${agent_file}"
+        return 1
+    fi
+
+    local agent_data
+    agent_data=$(cat "$agent_file")
+
+    local name description instructions
+    name=$(echo "$agent_data" | jq -r '.name')
+    description=$(echo "$agent_data" | jq -r '.description')
+    instructions=$(echo "$agent_data" | jq -r '.instructions')
+
+    # Build API payload with built-in tools initially
+    local payload
+    payload=$(jq -n \
+        --arg id "$AGENT_ID" \
+        --arg name "$name" \
+        --arg desc "$description" \
+        --arg instr "$instructions" \
+        '{
+            id: $id,
+            name: $name,
+            description: $desc,
+            configuration: {
+                instructions: $instr,
+                tools: [{
+                    tool_ids: [
+                        "platform.core.search",
+                        "platform.core.execute_esql",
+                        "platform.core.generate_esql",
+                        "platform.core.list_indices",
+                        "platform.core.get_index_mapping",
+                        "platform.core.get_document_by_id"
+                    ]
+                }]
+            }
+        }')
+
+    local response http_code body
+    response=$(curl -s -w "\n%{http_code}" -X POST "${KIBANA_URL}/api/agent_builder/agents" \
+        -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -H "kbn-xsrf: true" \
+        -d "$payload" 2>/dev/null || echo -e "\n000")
+
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+
+    if [[ "$http_code" == "200" || "$http_code" == "201" ]]; then
+        print_success "Created agent: ${name}"
+        return 0
+    else
+        print_error "Failed to create agent: HTTP ${http_code}"
+        print_error "$(echo "$body" | jq -r '.message // .' 2>/dev/null | head -c 200)"
+        return 1
+    fi
+}
+
+find_tool() {
+    local tool_id=$1
+    local response
+    response=$(curl -s -X GET "${KIBANA_URL}/api/agent_builder/tools/${tool_id}" \
+        -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+        -H "kbn-xsrf: true" 2>/dev/null)
+
+    if echo "$response" | jq -e '.id' > /dev/null 2>&1; then
+        echo "$tool_id"
+    fi
+}
+
+delete_tool() {
+    local tool_id=$1
+    if [[ -n "$tool_id" ]]; then
+        curl -s -X DELETE "${KIBANA_URL}/api/agent_builder/tools/${tool_id}" \
+            -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+            -H "kbn-xsrf: true" > /dev/null 2>&1
+    fi
+}
+
+create_tool() {
+    local tool_id=$1
+    local description=$2
+    local query=$3
+    local params=$4
+
+    # Delete existing tool if present
+    local existing
+    existing=$(find_tool "$tool_id")
+    if [[ -n "$existing" ]]; then
+        delete_tool "$existing"
+    fi
+
+    # Build payload
+    local payload
+    payload=$(jq -n \
+        --arg id "$tool_id" \
+        --arg desc "$description" \
+        --arg query "$query" \
+        --argjson params "${params:-{}}" \
+        '{
+            id: $id,
+            type: "esql",
+            description: $desc,
+            tags: ["workshop", "novamart", "custom"],
+            configuration: {
+                params: $params,
+                query: $query
+            }
+        }')
+
+    local response http_code
+    response=$(curl -s -w "\n%{http_code}" -X POST "${KIBANA_URL}/api/agent_builder/tools" \
+        -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -H "kbn-xsrf: true" \
+        -d "$payload" 2>/dev/null || echo -e "\n000")
+
+    http_code=$(echo "$response" | tail -n1)
+
+    if [[ "$http_code" == "200" || "$http_code" == "201" ]]; then
+        print_success "Created tool: ${tool_id}"
+        return 0
+    else
+        print_error "Failed to create tool: ${tool_id} (HTTP ${http_code})"
+        return 1
+    fi
+}
+
+create_all_tools() {
+    print_info "Creating 8 custom ES|QL tools..."
+    echo ""
+
+    local success_count=0
+
+    # Tool 1: Service Health Snapshot
+    if create_tool "service-health-snapshot" \
+        "Provides current health status of a service including latency, throughput, error rate. Use this as your first diagnostic step." \
+        'FROM traces-apm*
+| WHERE service.name == ?service_name
+| STATS
+    avg_latency_ms = AVG(transaction.duration.us) / 1000,
+    p95_latency_ms = PERCENTILE(transaction.duration.us, 95) / 1000,
+    error_rate_pct = AVG(CASE(event.outcome == "failure", 100, 0)),
+    total_requests = COUNT(*)
+| LIMIT 1' \
+        '{"service_name":{"type":"keyword","description":"Service name (e.g., order-service)"}}'; then
+        ((success_count++))
+    fi
+
+    # Tool 2: APM Latency Comparison
+    if create_tool "apm-latency-comparison" \
+        "Compare service latency before and after a timestamp to identify performance degradation." \
+        'FROM traces-apm*
+| WHERE service.name == ?service_name
+| EVAL time_period = CASE(@timestamp < TO_DATETIME(?comparison_time), "before", "after")
+| STATS avg_latency_ms = AVG(transaction.duration.us) / 1000, p95_latency_ms = PERCENTILE(transaction.duration.us, 95) / 1000, count = COUNT(*) BY time_period
+| LIMIT 10' \
+        '{"service_name":{"type":"keyword","description":"Service name"},"comparison_time":{"type":"keyword","description":"ISO timestamp (e.g., 2025-01-10T14:30:00Z)"}}'; then
+        ((success_count++))
+    fi
+
+    # Tool 3: Deployment Timeline
+    if create_tool "deployment-timeline" \
+        "Retrieves deployment events showing version, author, commit SHA, and timestamp." \
+        'FROM deployment-metadata
+| SORT deployment.timestamp DESC
+| KEEP deployment.version, deployment.service, deployment.timestamp, attribution.author, attribution.commit_sha, attribution.pr_number, changes.summary
+| LIMIT 10' \
+        '{}'; then
+        ((success_count++))
+    fi
+
+    # Tool 4: Deployment Code Changes
+    if create_tool "deployment-code-changes" \
+        "Retrieves code diff details including before/after code, files modified, commit message." \
+        'FROM deployment-metadata
+| SORT deployment.timestamp DESC
+| KEEP deployment.version, deployment.service, attribution.commit_sha, attribution.commit_message, code_diff.file, code_diff.method, code_diff.before, code_diff.after, code_diff.issue, changes.summary
+| LIMIT 5' \
+        '{}'; then
+        ((success_count++))
+    fi
+
+    # Tool 5: Error Pattern Analysis
+    if create_tool "error-pattern-analysis" \
+        "Analyzes error patterns for a service, grouping by error type to identify common failures." \
+        'FROM traces-apm*
+| WHERE service.name == ?service_name AND event.outcome == "failure"
+| STATS error_count = COUNT(*), first_seen = MIN(@timestamp), last_seen = MAX(@timestamp) BY transaction.name
+| SORT error_count DESC
+| LIMIT 20' \
+        '{"service_name":{"type":"keyword","description":"Service name to analyze"}}'; then
+        ((success_count++))
+    fi
+
+    # Tool 6: Business Impact Calculator
+    if create_tool "business-impact-calculator" \
+        "Calculate revenue impact using NovaMart average order value (\$47.50)." \
+        'FROM traces-apm*
+| WHERE service.name == ?service_name AND @timestamp >= TO_DATETIME(?start_time) AND @timestamp <= TO_DATETIME(?end_time) AND event.outcome == "failure"
+| STATS failed_transactions = COUNT(*)
+| EVAL estimated_revenue_loss_usd = failed_transactions * 47.50
+| KEEP failed_transactions, estimated_revenue_loss_usd
+| LIMIT 1' \
+        '{"service_name":{"type":"keyword","description":"Service name"},"start_time":{"type":"keyword","description":"Start time (ISO)"},"end_time":{"type":"keyword","description":"End time (ISO)"}}'; then
+        ((success_count++))
+    fi
+
+    # Tool 7: Incident Timeline
+    if create_tool "incident-timeline" \
+        "Build incident timeline with 1-minute buckets showing latency and error trends." \
+        'FROM traces-apm*
+| WHERE service.name == ?service_name AND @timestamp >= TO_DATETIME(?start_time) AND @timestamp <= TO_DATETIME(?end_time)
+| EVAL time_bucket = DATE_TRUNC(1 minute, @timestamp)
+| STATS avg_latency_ms = AVG(transaction.duration.us) / 1000, p95_latency_ms = PERCENTILE(transaction.duration.us, 95) / 1000, error_count = SUM(CASE(event.outcome == "failure", 1, 0)), total_count = COUNT(*) BY time_bucket
+| EVAL error_rate_pct = (error_count * 100.0) / total_count
+| SORT time_bucket ASC
+| LIMIT 100' \
+        '{"service_name":{"type":"keyword","description":"Service name"},"start_time":{"type":"keyword","description":"Start (ISO)"},"end_time":{"type":"keyword","description":"End (ISO)"}}'; then
+        ((success_count++))
+    fi
+
+    # Tool 8: SLO Status Budget
+    if create_tool "slo-status-budget" \
+        "Calculate SLO compliance and error budget consumption for a service." \
+        'FROM traces-apm*
+| WHERE service.name == ?service_name AND @timestamp >= NOW() - 1 hour
+| STATS total_requests = COUNT(*), successful = SUM(CASE(event.outcome == "success", 1, 0)), failed = SUM(CASE(event.outcome == "failure", 1, 0))
+| EVAL success_rate_pct = (successful * 100.0) / total_requests, slo_target_pct = 99.9, error_budget_remaining_pct = success_rate_pct - slo_target_pct, is_slo_violated = CASE(success_rate_pct < slo_target_pct, "YES", "NO")
+| KEEP total_requests, success_rate_pct, slo_target_pct, error_budget_remaining_pct, is_slo_violated
+| LIMIT 1' \
+        '{"service_name":{"type":"keyword","description":"Service name"}}'; then
+        ((success_count++))
+    fi
+
+    echo ""
+    if [[ $success_count -eq 8 ]]; then
+        print_success "All 8 tools created successfully"
+    else
+        print_info "Created ${success_count}/8 tools"
+    fi
+
+    return 0
+}
+
+update_agent_with_tools() {
+    print_info "Updating agent with custom + built-in tools..."
+
+    # Get current agent
+    local agent_response
+    agent_response=$(curl -s -X GET "${KIBANA_URL}/api/agent_builder/agents/${AGENT_ID}" \
+        -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+        -H "kbn-xsrf: true" 2>/dev/null)
+
+    if ! echo "$agent_response" | jq -e '.name' > /dev/null 2>&1; then
+        print_error "Agent not found: ${AGENT_ID}"
+        return 1
+    fi
+
+    local name description instructions
+    name=$(echo "$agent_response" | jq -r '.name')
+    description=$(echo "$agent_response" | jq -r '.description')
+    instructions=$(echo "$agent_response" | jq -r '.configuration.instructions')
+
+    # Build update payload with all tools
+    local payload
+    payload=$(jq -n \
+        --arg name "$name" \
+        --arg desc "$description" \
+        --arg instr "$instructions" \
+        '{
+            name: $name,
+            description: $desc,
+            configuration: {
+                instructions: $instr,
+                tools: [{
+                    tool_ids: [
+                        "service-health-snapshot",
+                        "apm-latency-comparison",
+                        "deployment-timeline",
+                        "deployment-code-changes",
+                        "error-pattern-analysis",
+                        "business-impact-calculator",
+                        "incident-timeline",
+                        "slo-status-budget",
+                        "platform.core.search",
+                        "platform.core.execute_esql",
+                        "platform.core.generate_esql",
+                        "platform.core.list_indices",
+                        "platform.core.get_index_mapping",
+                        "platform.core.get_document_by_id",
+                        "platform.core.cases"
+                    ]
+                }]
+            }
+        }')
+
+    local response http_code
+    response=$(curl -s -w "\n%{http_code}" -X PUT "${KIBANA_URL}/api/agent_builder/agents/${AGENT_ID}" \
+        -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -H "kbn-xsrf: true" \
+        -d "$payload" 2>/dev/null || echo -e "\n000")
+
+    http_code=$(echo "$response" | tail -n1)
+
+    if [[ "$http_code" == "200" || "$http_code" == "201" ]]; then
+        print_success "Agent updated with 15 tools (8 custom + 7 built-in)"
+        return 0
+    else
+        print_error "Failed to update agent: HTTP ${http_code}"
+        return 1
+    fi
+}
+
 setup_agent_builder() {
     echo ""
     echo -e "${BLUE}Setting up Agent Builder...${NC}"
@@ -711,41 +1068,16 @@ setup_agent_builder() {
 
     local metadata_file="${ASSETS_DIR}/deployment-metadata/v1.1-bad-changes.json"
 
-    # Check if Python 3 is available
-    if ! command -v python3 &> /dev/null; then
-        print_error "Python 3 is required for Agent Builder setup"
-        print_info "Skipping Agent Builder setup"
-        return 1
-    fi
-
-    # Step 1: Deploy the agent
-    print_info "Creating Agent Builder agent..."
-    if python3 "${SCRIPT_DIR}/deploy-agent-builder.py" 2>&1 | grep -q "DEPLOYMENT COMPLETE\|already exists"; then
-        print_success "Agent created: NovaMart Incident Investigation Assistant"
-    else
-        print_info "Agent deployment status unknown (may already exist)"
-    fi
-
+    # Step 1: Create the agent
+    create_agent
     echo ""
 
     # Step 2: Create custom tools
-    print_info "Creating custom Agent Builder tools..."
-    if python3 "${SCRIPT_DIR}/create-agent-builder-tools.py" 2>&1 | grep -q "ALL TOOLS CREATED SUCCESSFULLY"; then
-        print_success "Created 8 custom ES|QL tools"
-    else
-        print_info "Tool creation status unknown (may already exist)"
-    fi
-
+    create_all_tools
     echo ""
 
-    # Step 3: Update agent with tools
-    print_info "Configuring agent with custom tools..."
-    if python3 "${SCRIPT_DIR}/update-agent-tools.py" 2>&1 | grep -q "AGENT UPDATE COMPLETE"; then
-        print_success "Agent configured with 15 tools (8 custom + 7 built-in)"
-    else
-        print_info "Agent configuration status unknown"
-    fi
-
+    # Step 3: Update agent with all tools
+    update_agent_with_tools
     echo ""
 
     # Step 4: Index deployment metadata
@@ -757,7 +1089,7 @@ setup_agent_builder() {
             print_info "Deployment metadata indexing may have failed"
         fi
     else
-        print_error "Deployment metadata file not found: ${metadata_file}"
+        print_info "Deployment metadata file not found (optional)"
     fi
 
     echo ""
@@ -766,8 +1098,6 @@ setup_agent_builder() {
     print_info "Access the agent at:"
     print_info "  Kibana → Search → AI Assistants"
     print_info "  Agent: NovaMart Incident Investigation Assistant"
-    echo ""
-    print_info "For troubleshooting, see: README-AGENT-BUILDER.md"
 }
 
 verify_connection() {
