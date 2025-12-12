@@ -45,6 +45,12 @@ Value: v1.1-bad
 Impact: 94% correlation with high latency
 ```
 
+> 📸 **Screenshot: APM Correlations**
+>
+> ![APM Correlations](screenshots/03-apm-correlations.png)
+>
+> *Shows the Correlations panel highlighting service.version=v1.1-bad with a high impact percentage. This statistical analysis automatically identifies what's different about slow requests without manual searching.*
+
 This tells us that requests handled by version `v1.1-bad` are highly correlated with slow performance.
 
 Click on the correlation to filter transactions to only those affected by this version.
@@ -79,6 +85,12 @@ order-service
 
 Notice the **detailed-trace-logging** span taking approximately 2000ms. This span is new and was not present in the v1.0 traces.
 
+> 📸 **Screenshot: Slow Trace with Smoking Gun Span**
+>
+> ![Smoking Gun Span](screenshots/03-smoking-gun-span.png)
+>
+> *Shows the trace waterfall with a total duration of ~2100ms. The "detailed-trace-logging" span is visually dominant, taking up most of the timeline (~2000ms). This span was NOT present in healthy v1.0 traces - it's the new code causing the problem.*
+
 Click on the **detailed-trace-logging** span to view its details.
 
 ## Step 5: Examine Span Attributes
@@ -102,6 +114,12 @@ logging.destination: "/var/log/orders/trace.log"
 - What it is doing: Writing detailed trace logs to disk
 - How long it takes: **2000ms** per request
 
+> 📸 **Screenshot: Span Attributes with Attribution**
+>
+> ![Span Attributes](screenshots/03-span-attributes.png)
+>
+> *Shows the span detail panel with custom attributes visible: logging.author, logging.commit_sha, logging.pr_number, logging.delay_ms. These developer-added attributes enable instant attribution without searching git history.*
+
 This is the root cause. Jordan added synchronous file I/O that blocks every request for 2 seconds.
 
 ## Step 6: Correlate with Logs
@@ -124,6 +142,12 @@ Notice:
 - The log includes the trace ID (log correlation)
 - The message describes the 2000ms delay
 - The file and line number are included: `OrderController.java:47`
+
+> 📸 **Screenshot: Log Correlation**
+>
+> ![Log Correlation](screenshots/03-log-correlation.png)
+>
+> *Shows the Logs view filtered by trace.id, displaying the correlated log message from order-service. The log entry shows the trace ID, timestamp, service name, and the debug message about the 2000ms delay with file:line reference.*
 
 You have now traced the problem from alert to the exact line of code.
 
@@ -168,6 +192,12 @@ Navigate to **Observability > APM > Services > order-service**.
 Watch the latency chart. You should see:
 - A period of high latency (~2000ms) during the v1.1-bad deployment
 - A sharp drop back to baseline (~100-300ms) after rollback
+
+> 📸 **Screenshot: Recovery - Latency Returns to Normal**
+>
+> ![Recovery](screenshots/03-recovery-latency.png)
+>
+> *Shows the APM latency chart with the full incident lifecycle: baseline → spike at deployment → return to baseline after rollback. The "mountain" shape clearly shows the incident window.*
 
 ### Check SLO Status
 

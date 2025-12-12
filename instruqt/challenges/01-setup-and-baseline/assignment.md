@@ -47,6 +47,12 @@ You should see three services listed:
 - `inventory-service`
 - `payment-service`
 
+> 📸 **Screenshot: APM Services List**
+>
+> ![APM Services](screenshots/01-apm-services-list.png)
+>
+> *Shows the three services (order-service, inventory-service, payment-service) in the APM Services view with healthy status indicators and baseline metrics.*
+
 Click on **order-service** to view its details. Note the baseline metrics:
 - **Latency:** Should be around 100-300ms
 - **Throughput:** Requests per minute
@@ -59,6 +65,12 @@ Navigate to **Observability > APM > Service Map**
 This visual representation shows how services connect:
 - **order-service** calls both **inventory-service** and **payment-service**
 - All three services send data to the EDOT Collector
+
+> 📸 **Screenshot: Service Map**
+>
+> ![Service Map](screenshots/01-service-map.png)
+>
+> *Shows order-service in the center with arrows connecting to inventory-service and payment-service, visualizing the microservice dependencies.*
 
 ## Step 3: Review SLOs
 
@@ -75,6 +87,12 @@ You should see two Service Level Objectives configured:
 - **Target:** 99% of requests succeed
 - **Window:** 30-day rolling window
 - **Current Status:** Should be healthy (green)
+
+> 📸 **Screenshot: SLO Dashboard - Healthy State**
+>
+> ![SLO Dashboard](screenshots/01-slo-dashboard-healthy.png)
+>
+> *Shows both SLOs with green status indicators, high SLI percentages (99%+), and minimal error budget consumption. This is what "healthy" looks like.*
 
 Click on the **Order Service - Latency P95 < 500ms** SLO to view details. Note:
 - **SLI (Service Level Indicator):** The current percentage meeting the target
@@ -111,6 +129,12 @@ order-service
     └── payment-service
         └── POST /api/payments (30-80ms)
 ```
+
+> 📸 **Screenshot: Healthy Trace Waterfall**
+>
+> ![Healthy Trace](screenshots/01-healthy-trace-waterfall.png)
+>
+> *Shows a normal trace with total duration ~100-300ms. The waterfall displays order-service as the parent span with child spans for inventory and payment calls. Note the short, proportional span durations.*
 
 Notice the span attributes on the right panel. Each span includes:
 - Service name and version

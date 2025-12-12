@@ -98,12 +98,24 @@ Watch the **Latency** chart:
 - After deployment: Should spike to ~2000ms immediately
 - Look for the deployment annotation (vertical line) on the chart
 
+> 📸 **Screenshot: Latency Spike After Deployment**
+>
+> ![Latency Spike](screenshots/02-latency-spike.png)
+>
+> *Shows the APM latency chart with a dramatic spike from ~200ms to ~2000ms. A vertical deployment annotation line marks exactly when v1.1-bad was deployed. The correlation between deployment and spike should be visually obvious.*
+
 ### In the SLO Dashboard:
 
 Watch the **Order Service - Latency P95 < 500ms** SLO:
 - **SLI percentage** will start dropping (requests no longer meeting the 500ms target)
 - **Burn rate** will increase dramatically (6x or higher)
 - The status indicator will turn yellow or red
+
+> 📸 **Screenshot: SLO Degradation**
+>
+> ![SLO Degradation](screenshots/02-slo-degradation.png)
+>
+> *Shows the SLO dashboard with the Latency SLO now showing yellow/red status. The SLI percentage has dropped, burn rate shows elevated consumption (6x+), and error budget is being consumed rapidly. Compare this to the healthy state from Challenge 1.*
 
 This should happen within **2-3 minutes** of the deployment.
 
@@ -147,6 +159,12 @@ Click on the alert to see details:
 - Current burn rate
 - Link to the affected SLO
 - Link to investigate in APM
+
+> 📸 **Screenshot: Alert Fired**
+>
+> ![Alert Fired](screenshots/02-alert-fired.png)
+>
+> *Shows the Alerts page with the "SLO Burn Rate" alert in Active/Firing state. The alert details panel shows severity, when it fired, and the current burn rate value exceeding the threshold.*
 
 ## Step 7: Examine the Deployment Annotation
 
