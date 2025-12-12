@@ -182,13 +182,14 @@ api_call() {
 delete_all_slos_by_name() {
     local name=$1
     local response
-    response=$(curl -s -X GET "${KIBANA_URL}/api/observability/slos?perPage=100" \
+    response=$(curl -s --max-time 30 -X GET "${KIBANA_URL}/api/observability/slos?perPage=100" \
         -H "Authorization: ApiKey ${ELASTIC_API_KEY}" \
         -H "kbn-xsrf: true" 2>/dev/null)
 
     # Find ALL SLOs matching the name and delete each one
+    # Use --arg to safely pass the name (handles special chars like < > etc)
     local slo_ids
-    slo_ids=$(echo "$response" | jq -r ".results[] | select(.name == \"${name}\") | .id" 2>/dev/null)
+    slo_ids=$(echo "$response" | jq -r --arg n "$name" '.results[] | select(.name == $n) | .id' 2>/dev/null)
 
     if [[ -n "$slo_ids" ]]; then
         local count=0
