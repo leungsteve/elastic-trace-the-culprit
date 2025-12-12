@@ -1163,12 +1163,14 @@ main() {
     # Enable Workflows and create workflow definition
     setup_workflows
 
-    # Create ML jobs for anomaly detection
-    setup_ml_jobs
+    # Create ML jobs for anomaly detection (optional, don't fail if it errors)
+    setup_ml_jobs || true
 
-    # Import dashboard and setup agent builder
-    setup_dashboard
-    setup_agent_builder
+    # Import dashboard (optional)
+    setup_dashboard || true
+
+    # Setup Agent Builder (agent + custom tools)
+    setup_agent_builder || true
 
     print_summary
 }
