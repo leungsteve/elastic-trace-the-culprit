@@ -222,8 +222,9 @@ create_slo() {
     data=$(cat "$file")
 
     # Extract the actual SLO name from the JSON file (this is what Kibana stores)
+    # Use grep instead of jq because the file has template placeholders that make it invalid JSON
     local actual_name
-    actual_name=$(echo "$data" | jq -r '.name' 2>/dev/null)
+    actual_name=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' "$file" | head -1 | sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')
 
     # Delete ALL existing SLOs with the actual name from the JSON
     if [[ -n "$actual_name" && "$actual_name" != "null" ]]; then
