@@ -56,16 +56,13 @@ retry_command_lin() {
 export -f retry_command_lin
 
 check_es_health() {
-  ENV_FILE_PARENT_DIR=/home/kubernetes-vm
-  ENV_FILE=$ENV_FILE_PARENT_DIR/env
-  export $(cat $ENV_FILE | xargs)
+  # Use ELASTIC_ENDPOINT from environment (set after sourcing .env)
+  local es_url="${ELASTIC_ENDPOINT:-http://kubernetes-vm:30920}"
 
-  output=$(curl -s -X POST "$ELASTICSEARCH_URL_LOCAL/test/_doc" \
+  output=$(curl -s -X POST "$es_url/test/_doc" \
     -H 'Content-Type: application/json' \
-    --header "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64" -d'
-    {
-      "message": "Hello World"
-    }')
+    -H "$AUTH_HEADER" \
+    -d '{"message": "Hello World"}')
   echo $output
   RESULT=$(echo $output | jq -r '.result')
   if [[ $RESULT = created ]]; then
@@ -75,9 +72,9 @@ check_es_health() {
     return 1
   fi
 
-  output=$(curl -s -X GET "$ELASTICSEARCH_URL_LOCAL/test/_search" \
+  output=$(curl -s -X GET "$es_url/test/_search" \
     -H 'Content-Type: application/json' \
-    --header "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64")
+    -H "$AUTH_HEADER")
   RESULT=$(echo $output | jq -r '._shards.successful')
   if [[ $RESULT = 1 ]]; then
     echo "check_es_health: doc searched"
@@ -86,9 +83,9 @@ check_es_health() {
     return 1
   fi
 
-  output=$(curl -s -X DELETE "$ELASTICSEARCH_URL_LOCAL/test" \
+  output=$(curl -s -X DELETE "$es_url/test" \
     -H 'Content-Type: application/json' \
-    --header "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64")
+    -H "$AUTH_HEADER")
   RESULT=$(echo $output | jq -r '.acknowledged')
   if [[ $RESULT = true ]]; then
     echo "check_es_health: index deleted"
@@ -99,24 +96,41 @@ check_es_health() {
 }
 export -f check_es_health
 
-# source ./elastic-retry.sh
-ELASTICSEARCH_AUTH_BASE64="ZWxhc3RpYzplbGFzdGlj"
-KIBANA_URL_LOCAL=http://localhost:5601
-ELASTICSEARCH_VERSION=9.2.1
+# =============================================================================
+# Configuration - Load from environment or .env file
+# =============================================================================
 
-# Use environment variables if set, otherwise fall back to file
-if [[ -z "${LLM_PROXY_URL:-}" ]] && [[ -f /tmp/instruqt_env.txt ]]; then
-    LLM_PROXY_URL=$(grep SA_LLM_PROXY_URL /tmp/instruqt_env.txt | cut -d= -f 2)
-fi
-if [[ -z "${LLM_APIKEY:-}" ]] && [[ -f /tmp/instruqt_env.txt ]]; then
-    LLM_APIKEY=$(grep SA_LLM_PROXY_BEARER_TOKEN /tmp/instruqt_env.txt | cut -d= -f 2-)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="${SCRIPT_DIR}/.env"
+
+# Load .env file if it exists
+if [[ -f "$ENV_FILE" ]]; then
+    echo "Loading environment from: $ENV_FILE"
+    set -a
+    source "$ENV_FILE"
+    set +a
 fi
 
+# Kibana URL - use KIBANA_URL from environment, default to ECK NodePort
+KIBANA_URL_LOCAL="${KIBANA_URL:-http://kubernetes-vm:30002}"
+
+# Authentication - prefer API key, fall back to basic auth
+if [[ -n "${ELASTIC_API_KEY:-}" ]]; then
+    AUTH_HEADER="Authorization: ApiKey ${ELASTIC_API_KEY}"
+else
+    # Fallback to basic auth (elastic:elastic)
+    ELASTICSEARCH_AUTH_BASE64="ZWxhc3RpYzplbGFzdGlj"
+    AUTH_HEADER="Authorization: Basic ${ELASTICSEARCH_AUTH_BASE64}"
+fi
+
+# LLM Configuration - use environment variables directly
+# These should be set as LLM_PROXY_URL and LLM_APIKEY in the environment
 echo "LLM_PROXY_URL=${LLM_PROXY_URL:-not set}"
 echo "LLM_APIKEY=${LLM_APIKEY:+[set]}"
+echo "KIBANA_URL_LOCAL=${KIBANA_URL_LOCAL}"
 
-# Get Elastic Stack Version from Ansible template variable
-ELASTIC_STACK_VERSION=9.2.1
+# Elastic Stack Version
+ELASTIC_STACK_VERSION=9.0.0
 
 model=gpt-4o
 connector=true
@@ -140,12 +154,6 @@ echo "docs=$docs"
 echo "everywhere=$everywhere"
 echo "prompt=$prompt"
 
-####################################################################### ENV
-
-ENV_FILE_PARENT_DIR=/home/kubernetes-vm
-ENV_FILE=$ENV_FILE_PARENT_DIR/env
-export $(cat $ENV_FILE | xargs)
-
 ####################################################################### OPENAI
 # Install LLM in ES
 
@@ -154,8 +162,10 @@ if [ "$connector" = true ]; then
   add_connector() {
     local http_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$KIBANA_URL_LOCAL/api/actions/connector" \
       -H 'Content-Type: application/json' \
-      --header "kbn-xsrf: true" --header "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64" --header "x-elastic-internal-origin: Kibana" -d'
-    {
+      -H "kbn-xsrf: true" \
+      -H "$AUTH_HEADER" \
+      -H "x-elastic-internal-origin: Kibana" \
+      -d '{
     "name":"openai-connector",
     "config": {
         "apiProvider":"OpenAI",
@@ -188,15 +198,15 @@ if [ "$knowledgebase" = true ]; then
     if [[ $ELASTIC_STACK_VERSION == 8.* ]]; then
       http_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$KIBANA_URL_LOCAL/internal/observability_ai_assistant/kb/setup" \
         -H 'Content-Type: application/json' \
-        --header "kbn-xsrf: true" \
-        --header "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64" \
-        --header 'x-elastic-internal-origin: Kibana')
+        -H "kbn-xsrf: true" \
+        -H "$AUTH_HEADER" \
+        -H 'x-elastic-internal-origin: Kibana')
     elif [[ $ELASTIC_STACK_VERSION == 9.* ]]; then
       http_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$KIBANA_URL_LOCAL/internal/observability_ai_assistant/kb/setup?inference_id=.elser-2-elasticsearch" \
         -H 'Content-Type: application/json' \
-        --header "kbn-xsrf: true" \
-        --header "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64" \
-        --header 'x-elastic-internal-origin: Kibana')
+        -H "kbn-xsrf: true" \
+        -H "$AUTH_HEADER" \
+        -H 'x-elastic-internal-origin: Kibana')
     fi
 
     if [[ $http_status =~ ^2 ]]; then
@@ -211,7 +221,7 @@ if [ "$knowledgebase" = true ]; then
 
   wait_kb() {
     output=$(curl -X GET -s "$KIBANA_URL_LOCAL/internal/observability_ai_assistant/kb/status" \
-      -H "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64" \
+      -H "$AUTH_HEADER" \
       -H "Content-Type: application/json" \
       -H "kbn-xsrf: true" \
       -H 'x-elastic-internal-origin: Kibana')
@@ -258,14 +268,14 @@ if [ "$docs" = true ]; then
       http_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$KIBANA_URL_LOCAL/internal/product_doc_base/install" \
         -H "Content-Type: application/json" \
         -H "kbn-xsrf: true" \
-        -H "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64" \
+        -H "$AUTH_HEADER" \
         -H "x-elastic-internal-origin: Kibana")
 
     elif [[ $ELASTIC_STACK_VERSION == 9.* ]]; then
       http_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$KIBANA_URL_LOCAL/internal/product_doc_base/install" \
         -H "Content-Type: application/json" \
         -H "kbn-xsrf: true" \
-        -H "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64" \
+        -H "$AUTH_HEADER" \
         -H "x-elastic-internal-origin: Kibana" \
         -d '{"inferenceId":".elser-2-elasticsearch"}')
     fi
@@ -286,7 +296,9 @@ if [ "$everywhere" = true ]; then
   init_ai_everywhere() {
     local http_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$KIBANA_URL_LOCAL/internal/kibana/settings" \
       -H 'Content-Type: application/json' \
-      --header "kbn-xsrf: true" --header "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64" --header 'x-elastic-internal-origin: Kibana' \
+      -H "kbn-xsrf: true" \
+      -H "$AUTH_HEADER" \
+      -H 'x-elastic-internal-origin: Kibana' \
       -d '{"changes":{"aiAssistant:preferredAIAssistantType":"observability"}}')
 
     if echo $http_status | grep -q '^2'; then
@@ -302,9 +314,9 @@ fi #if [ "$everywhere" = true ]
 
 if [ "$prompt" = true ]; then
   curl -X PUT "$KIBANA_URL_LOCAL/internal/observability_ai_assistant/kb/user_instructions" \
-    --header 'Content-Type: application/json' \
-    --header "kbn-xsrf: true" \
-    --header "Authorization: Basic $ELASTICSEARCH_AUTH_BASE64" \
-    --header 'x-elastic-internal-origin: Kibana' \
+    -H 'Content-Type: application/json' \
+    -H "kbn-xsrf: true" \
+    -H "$AUTH_HEADER" \
+    -H 'x-elastic-internal-origin: Kibana' \
     -d @./elastic-llm-prompt.json
 fi #if [ "$prompt" = true ]
