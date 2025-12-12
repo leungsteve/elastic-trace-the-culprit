@@ -86,27 +86,45 @@ send_order() {
 
     local response
     local http_code
+    local time_ms
 
-    # Send the order and capture response
-    response=$(curl -s -w "\n%{http_code}" \
+    # Send the order and capture response + timing
+    # Format: body\nhttp_code\ntime_total
+    response=$(curl -s -w "\n%{http_code}\n%{time_total}" \
         -X POST "${ORDER_SERVICE_URL}/api/orders" \
         -H "Content-Type: application/json" \
-        -d "${order_json}" 2>/dev/null || echo -e "\n000")
+        -d "${order_json}" 2>/dev/null || echo -e "\n000\n0")
 
-    http_code=$(echo "$response" | tail -n1)
+    # Parse response: last line is time, second-to-last is http_code, rest is body
+    local time_sec
+    time_sec=$(echo "$response" | tail -n1)
+    http_code=$(echo "$response" | tail -n2 | head -n1)
     local body
-    body=$(echo "$response" | sed '$d')
+    body=$(echo "$response" | sed -e '$ d' -e '$ d')
+
+    # Convert seconds to milliseconds for display
+    time_ms=$(echo "$time_sec * 1000" | bc | cut -d'.' -f1)
 
     ((TOTAL_REQUESTS++))
+
+    # Color-code response time: green <500ms, yellow 500-1500ms, red >1500ms
+    local time_color
+    if [[ $time_ms -lt 500 ]]; then
+        time_color="${GREEN}"
+    elif [[ $time_ms -lt 1500 ]]; then
+        time_color="${YELLOW}"
+    else
+        time_color="${RED}"
+    fi
 
     if [[ "$http_code" == "200" || "$http_code" == "201" ]]; then
         ((SUCCESSFUL_REQUESTS++))
         local order_id
         order_id=$(echo "$body" | grep -o '"orderId":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
-        echo -e "${GREEN}[OK]${NC} Order ${order_id} - HTTP ${http_code}"
+        echo -e "${GREEN}[OK]${NC} Order ${order_id} - HTTP ${http_code} - ${time_color}${time_ms}ms${NC}"
     else
         ((FAILED_REQUESTS++))
-        echo -e "${RED}[FAIL]${NC} HTTP ${http_code}"
+        echo -e "${RED}[FAIL]${NC} HTTP ${http_code} - ${time_color}${time_ms}ms${NC}"
     fi
 }
 
